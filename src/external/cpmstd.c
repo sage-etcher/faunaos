@@ -19,9 +19,9 @@ bdos_p_termcpm (void)
 }
 
 void
-bdos_c_writestr (char *hl_msg)
+bdos_c_writestr (char *de_msg)
 {
-    (void)hl_msg;
+    (void)de_msg;
     __asm__ ("ex de,hl");
     SYSCALL (9);
 }
@@ -35,21 +35,32 @@ bdos_drv_allreset (void)
 uint8_t
 bdos_drv_set (uint8_t e_drive)
 {
+    (void)e_drive;
+    __asm__ ("ld e,a");
+    SYSCALL (14);
+    __asm__ ("ret");
+    return 0; /* unreachable */
 }
 
 void
 bdos_f_dmaoff (uint16_t de_dma)
 {
+    __asm__ ("ex de,hl");
+    SYSCALL (26);
 }
 
 uint32_t
 bdos_f_readrand (struct bdos_fcb *de_fcb)
 {
+    __asm__ ("ex de,hl");
+    SYSCALL (33);
 }
 
 uint32_t
 bdos_f_writerand (struct bdos_fcb *de_fcb)
 {
+    __asm__ ("ex de,hl");
+    SYSCALL (34);
 }
 
 /* end of file */
