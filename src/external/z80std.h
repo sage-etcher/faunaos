@@ -10,6 +10,7 @@ typedef signed char     int8_t;
 typedef signed short    int16_t;
 typedef signed long     int32_t;
 
+typedef uint16_t        size_t;
 typedef uint16_t        uintptr_t;
 typedef int16_t         ptrdiff_t;
 
