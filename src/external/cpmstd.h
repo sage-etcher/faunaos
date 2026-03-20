@@ -71,9 +71,9 @@ enum {
 #endif
 
 void _Noreturn bdos_p_termcpm (void);               /* BDOS fn  0 - System reset */
-uint8_t bdos_c_read (void);                         /* BDOS fn  1 - Console input */
+char bdos_c_read (void);                            /* BDOS fn  1 - Console input */
 void bdos_c_write (char c);                         /* BDOS fn  2 - Console output */
-uint8_t bdos_a_read (void);                         /* BDOS fn  3 - Auxiliary input */
+char bdos_a_read (void);                            /* BDOS fn  3 - Auxiliary input */
 void bdos_a_write (char c);                         /* BDOS fn  4 - Auxiliary output */
 void bdos_l_write (char c);                         /* BDOS fn  5 - Printer output */
 
@@ -88,7 +88,7 @@ void bdos_set_io (uint8_t io);                      /* BDOS fn  8 - Set I/O byte
 
 void bdos_c_writestr (char *msg);                   /* BDOS fn  9 - Output string */
 void bdos_c_readstr (struct bdos_buffer *buf);      /* BDOS fn 10 - Input string */
-void bdos_c_stat (void);                            /* BDOS fn 11 - Console status */
+uint8_t bdos_c_stat (void);                         /* BDOS fn 11 - Console status */
 
 #if CPM_TARGET >= CPM_VERSION_20
 struct bdos_version bdos_s_ver (void);              /* BDOS fn 12 - Return version number */
