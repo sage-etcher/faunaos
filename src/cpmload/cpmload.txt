@@ -1,0 +1,15 @@
+A: CPMLOAD
+filepath: B:BOOTLOAD.BIN
+destinations [drive,side,track,sector]: 1,0,0,4
+insert source diskette into drive B
+press any key to continue
+reading....
+insert destination diskette into drive B
+press any key to continue
+writing....
+done
+
+0100 0001
+0110 0001
+
+A: 
