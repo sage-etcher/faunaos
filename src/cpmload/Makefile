@@ -23,9 +23,9 @@ clean:
 	sdcc -c $< $(EXTRA_CFLAGS) $(CFLAGS)
 
 cpmload.ihx: cpmload.rel $(EXTERNAL)/z80std.rel $(EXTERNAL)/cpmstd.rel
-	sdcc $^ $(EXTRA_LDFLAGS) $(LDFLAGS) \
-		--code-loc 0x0100 --code-size 0x0e00 \
-		--data-loc 0x1000 --stack-loc 0x1000
+	sdcc $^ $(EXTRA_LDFLAGS) $(LDFLAGS) --code-loc 0x0100 --data-loc 0x1000
+		#--code-loc 0x0100 --code-size 0x0e00 \
+		#--data-loc 0x1000 --stack-loc 0x1000
 
 cpmload.com: cpmload.ihx
 	hex2bin -e com -m 0x080 -s 0x0100 $< >/dev/null

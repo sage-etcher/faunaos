@@ -1,6 +1,6 @@
 
 #include "cpmstd.h"
-#include "z80std.h"
+#include "types.h"
 
 struct disk_addr {
     uint8_t drive;
@@ -24,6 +24,7 @@ _entry0 (void)
     char *input_line = NULL;
     struct bdos_fcb fp = { 0 };
     struct disk_addr dst = { 0 };
+    char src_drive = 'A';
 
     /* collect input from user */
     /* get source file */
@@ -31,6 +32,11 @@ _entry0 (void)
     if (filepath_parse (input_line, &fp))
     {
         goto exit;
+    }
+
+    if (fp.drive)
+    {
+        src_drive = fp.drive + 'A' - 1;
     }
 
     /* get desintation disk address */
@@ -42,8 +48,8 @@ _entry0 (void)
 
     /* read file into memory */
     bdos_c_writestr ("insert source diskette into drive $");
-    bdos_c_write (fp.drive + 'A');
-    bdos_c_writestr ("\n\r");
+    bdos_c_write (src_drive);
+    bdos_c_writestr ("\n\r$");
     timeout ();
 
     if (0xff == bdos_f_open (&fp))
@@ -83,7 +89,7 @@ prompt (char *msg)
 {
     enum { BUF_MAX = 128 };
     static uint8_t _buf[sizeof (struct bdos_buffer) + BUF_MAX + 1];
-    static struct bdos_buffer *buf = (void *)_buf;
+    struct bdos_buffer *buf = (void *)&_buf;
 
     /* print */
     bdos_c_writestr (msg);
@@ -92,8 +98,8 @@ prompt (char *msg)
     buf->size = BUF_MAX;
     buf->len  = 0;
     bdos_c_readstr (buf);
-    bdos_c_write ('\r');
     bdos_c_write ('\n');
+    bdos_c_write ('\r');
 
     /* null terminate */
     buf->bytes[buf->len] = '\0';
@@ -104,26 +110,10 @@ prompt (char *msg)
 static void
 timeout (void)
 {
-    uint8_t c;
-
     bdos_c_writestr ("press any key to continue$");
-    c = bdos_c_read ();
-
-    if (c == '\r')
-    {
-        bdos_c_write ('\n');
-    }
-    else if (c == '\n')
-    {
-        bdos_c_write ('\r');
-    }
-    else
-    {
-        bdos_c_write ('\n');
-        bdos_c_write ('\r');
-    }
-
-    return;
+    (void)bdos_c_read ();
+    bdos_c_write ('\n');
+    bdos_c_write ('\r');
 }
 
 static uint8_t
@@ -136,20 +126,28 @@ filepath_parse (char *filepath, struct bdos_fcb *fcb)
     if (*filepath&& filepath[1] == ':')
     {
         tmp_drive = to_upper (*filepath);
-        if ('A' <= tmp_drive && tmp_drive <= 'P')
+        if ('A' > tmp_drive || tmp_drive > 'P')
         {
             bdos_c_writestr ("error: drive letter is out of range A-P\n\r$");
             return 1;
         }
 
-        fcb->drive = tmp_drive - 'A';
+        fcb->drive = tmp_drive - 'A' + 1;
         filepath += 2;
+    }
+    else
+    {
+        fcb->drive = 0; /* automatic */
     }
 
     /* get filename */
     for (i = 0; i < FILENAME_LEN && *filepath && *filepath != '.'; i++, filepath++)
     {
         fcb->filename[i] = to_upper (*filepath);
+    }
+    for (; i < FILENAME_LEN; i++)
+    {
+        fcb->filename[i] = ' ';
     }
 
     /* skip the dot */
@@ -167,6 +165,10 @@ filepath_parse (char *filepath, struct bdos_fcb *fcb)
     for (i = 0; i < FILETYPE_LEN && *filepath; i++, filepath++)
     {
         fcb->filetype[i] = to_upper (*filepath);
+    }
+    for (; i < FILETYPE_LEN; i++)
+    {
+        fcb->filetype[i] = ' ';
     }
 
     if (*filepath != '\0')

@@ -1,20 +1,22 @@
 
-.SUFFIXES: .c .rel
+.SUFFIXES: .asm .c .rel
 
-BUILDDIR = build
-
+#DEBUG_FLAGS = --nooverlay --nogcse --nolabelopt --noinvariant --noinduction \
+#			  --noloopreverse --no-peep --no-peep-return 
 PORT_FLAGS = --std-sdcc99 -mz80 -pz80 --sdcccall 1
-EXTRA_CFLAGS  := $(PORT_FLAGS) --nostdinc -I.
+EXTRA_CFLAGS  := $(PORT_FLAGS) --nostdinc -I. $(DEBUG_FLAGS)
 EXTRA_LDFLAGS := $(PORT_FLAGS) --nostdlib --no-std-crt0
 
 build: cpmstd.rel z80std.rel
 
 clean:
-	rm -f *.asm *.lst *.rel *.sym
+	rm -f *.lst *.rel *.sym
 
-# general
-.c.rel:
-	sdcc -c $< $(EXTRA_CFLAGS) $(CFLAGS)
+.asm.rel:
+	sdasz80 -los $@ $<
+
+.c.asm:
+	sdcc --c1mode $< $(EXTRA_CFLAGS) $(CFLAGS)
 
 PHONY: build clean
 # end of file
