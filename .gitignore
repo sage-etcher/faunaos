@@ -7,3 +7,7 @@
 **.noi
 **.rel
 **.sym
+bins/
+disks/
+logs/
+tools/
