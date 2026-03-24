@@ -63,7 +63,7 @@ _entry0 (void)
     /* write file to disk */
     bdos_c_writestr ("insert destination diskette into drive $");
     bdos_c_write (dst.drive + 'A');
-    bdos_c_writestr ("\n\r");
+    bdos_c_writestr ("\n\r$");
     timeout ();
 
     /* log operation finished */
@@ -225,7 +225,7 @@ destination_parse (char *input, struct disk_addr *dst)
 
     if (dst->drive >= 16)
     {
-        bdos_c_writestr ("error: drive number out of range 0-15\n\r$");
+        bdos_c_writestr ("error: drive number out of range 0h-0fh\n\r$");
         return 1;
     }
 
@@ -237,7 +237,7 @@ destination_parse (char *input, struct disk_addr *dst)
 
     if (dst->track >= 35)
     {
-        bdos_c_writestr ("error: track is out of range 0-34\n\r$");
+        bdos_c_writestr ("error: track is out of range 0h-22h\n\r$");
         return 1;
     }
 
