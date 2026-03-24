@@ -30,7 +30,7 @@ static int raw_write_disk (struct disk_addr *loc, uint16_t n);
 void
 _entry0 (void)
 {
-    uint8_t rc;
+    uint8_t rc = 0xff;
     char *input_line = NULL;
     struct bdos_fcb fp;
     struct disk_addr dst;
