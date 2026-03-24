@@ -11,20 +11,30 @@ struct disk_addr {
 
 void _entry0 (void);
 static char to_upper (char c);
-static uint8_t xtou (uint8_t c);
+static char utox (uint8_t x);
+static uint8_t xtou (char c);
 static uint8_t xstrtou (char *s, char **tail);
 static char *prompt (char *msg);
 static void timeout (void);
 static uint8_t filepath_parse (char *filepath, struct bdos_fcb *fcb);
 static uint8_t destination_parse (char *input, struct disk_addr *dst);
 
+#define CPM_SEC_SIZE        128
+
+#define CPMLOAD_BUF_ADDR    (uint8_t *)0x2000
+#define CPMLOAD_SEC_PER_BUF 40
+#define CPMLOAD_BUF_SIZE    CPM_SEC_SIZE * CPMLOAD_SEC_PER_BUFFER;
+
 void
 _entry0 (void)
 {
+    uint8_t rc;
     char *input_line = NULL;
-    struct bdos_fcb fp = { 0 };
-    struct disk_addr dst = { 0 };
+    struct bdos_fcb fp;
+    struct disk_addr dst;
     char src_drive = 'A';
+    uint16_t buf_n = 0;
+    uint8_t *dma;
 
     /* collect input from user */
     /* get source file */
@@ -57,6 +67,56 @@ _entry0 (void)
         bdos_c_writestr ("error: cannot open file\n\r$");
         goto exit;
     }
+    fp.current_record = 0;
+
+    bdos_c_writestr ("reading sectors:$");
+    buf_n = 0;
+    dma = CPMLOAD_BUF_ADDR;
+    for (uint8_t i = 0; i < CPMLOAD_SEC_PER_BUF; i++)
+    {
+        bdos_f_dmaoff (dma);
+        dma   += CPM_SEC_SIZE;
+        buf_n += CPM_SEC_SIZE;
+
+        rc = bdos_f_read (&fp);
+        if (rc == 0)
+        {
+            /* success */
+            bdos_c_write ('.');
+        }
+        else if (rc == 1)
+        {
+            /* end of file */
+            bdos_c_write ('#');
+            break;
+        }
+        else
+        {
+            /* failure */
+            bdos_c_writestr ("?\n\r");
+
+            switch (rc)
+            {
+            case 0x09: bdos_c_writestr ("error: invalid FCB\n\r$"); break;
+            case 0x0a: bdos_c_writestr ("error: fread, media changed\n\r$"); break;
+            case 0xff: bdos_c_writestr ("error: fread, hardware error\n\r$"); break;
+            default:
+                bdos_c_writestr ("error: fread, unknown error 0$"); 
+                bdos_c_write (utox (rc & 0xf0 >> 4));
+                bdos_c_write (utox (rc & 0x0f));
+                bdos_c_writestr ("h\n\r$");
+                break;
+            }
+            goto exit;
+        }
+    }
+    if (rc != 1)
+    {
+        bdos_c_writestr ("warning: file is too large, max 5kb\n\r$");
+    }
+
+    bdos_c_write ('\n');
+    bdos_c_write ('\r');
 
     (void)bdos_f_close (&fp);
 
@@ -67,9 +127,11 @@ _entry0 (void)
     timeout ();
 
     /* log operation finished */
-    bdos_c_writestr ("done\n\r$");
+    bdos_c_writestr ("successfully loaded bin\n\r$");
 
 exit:
+    bdos_c_writestr ("re-insert OS diskette\n\r$");
+    timeout ();
     bdos_p_termcpm ();
 }
 
@@ -177,16 +239,27 @@ filepath_parse (char *filepath, struct bdos_fcb *fcb)
         return 1;
     }
 
+    fcb->ex = 0;
+    fcb->rc = 0;
+
     return 0;
 }
 
 static uint8_t
-xtou (uint8_t c)
+xtou (char c)
 {
     if ('0' <= c && c <= '9') return c - '0';
     if ('A' <= c && c <= 'F') return c - 'F';
     if ('a' <= c && c <= 'f') return c - 'f';
     return 0xff; /* error */
+}
+
+static char
+utox (uint8_t x)
+{
+    const char *lookup = "0123456789ABCDEF";
+    x &= 0x0f;
+    return (char)lookup[x];
 }
 
 static uint8_t
