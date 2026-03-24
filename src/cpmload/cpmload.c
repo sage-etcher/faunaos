@@ -1,4 +1,5 @@
 
+#include "advantage.h"
 #include "cpmstd.h"
 #include "types.h"
 
@@ -18,6 +19,7 @@ static char *prompt (char *msg);
 static void timeout (void);
 static uint8_t filepath_parse (char *filepath, struct bdos_fcb *fcb);
 static uint8_t destination_parse (char *input, struct disk_addr *dst);
+static int raw_write_disk (struct disk_addr *loc, uint16_t n);
 
 #define CPM_SEC_SIZE        128
 
@@ -125,6 +127,12 @@ _entry0 (void)
     bdos_c_write (dst.drive + 'A');
     bdos_c_writestr ("\n\r$");
     timeout ();
+
+    if (raw_write_disk (&dst, buf_n))
+    {
+        bdos_c_writestr ("error: cannot write to destination disk\n\r$");
+        goto exit;
+    }
 
     /* log operation finished */
     bdos_c_writestr ("successfully loaded bin\n\r$");
@@ -296,9 +304,9 @@ destination_parse (char *input, struct disk_addr *dst)
     dst->track  = xstrtou (iter, &iter);
     dst->sector = xstrtou (iter, &iter);
 
-    if (dst->drive >= 16)
+    if (dst->drive >= 2)
     {
-        bdos_c_writestr ("error: drive number out of range 0h-0fh\n\r$");
+        bdos_c_writestr ("error: drive number out of range 0-1\n\r$");
         return 1;
     }
 
@@ -324,5 +332,202 @@ destination_parse (char *input, struct disk_addr *dst)
 }
 
 
+static void
+drive_step (uint8_t drv_ctrl)
+{
+    /* send step pulse */
+    drv_ctrl ^= DCTRL_STEP_PULSE;
+    adv_drive_ctrl = drv_ctrl;
+    drv_ctrl ^= DCTRL_STEP_PULSE;
+    adv_drive_ctrl = drv_ctrl;
+
+    /* wait atleast 5ms (16-32ms using vsync) */
+    adv_clear_vsync = 0;
+    while (~adv_stat1 & STAT1_VSYNC_INT) {} /* psuedo-rand wait, 0-16ms */
+    adv_clear_vsync = 0;
+    while (~adv_stat1 & STAT1_VSYNC_INT) {} /* ensure atleast 16ms wait */
+}
+
+static void
+send_cmd (uint8_t io_ctrl)
+{
+    register uint8_t status;
+    register uint8_t prev_status;
+
+    prev_status = adv_stat2;
+    adv_ctrl = io_ctrl;
+    do {
+        status = adv_stat2;
+    } while ((int)(prev_status ^ status) < 0);
+}
+
+static int
+raw_write_disk (struct disk_addr *loc, uint16_t n)
+{
+    int retcode = 1; /* err by default */
+    uint8_t io_ctrl  = 0x00;
+    uint8_t drv_ctrl = 0x00;
+    uint8_t cur_track;
+    uint8_t cur_sector;
+    uint16_t max_retry;
+    uint8_t watch_sector;
+    uint16_t i;
+    uint8_t crc;
+    uint8_t oh;
+
+    enum { DISK_SEC_SIZE = 512 };
+    uint8_t *buf = CPMLOAD_BUF_ADDR;
+
+    bdos_c_writestr ("writing sectors:$");
+
+    /* convert loc->sector to 0-8+F range of adv get_sector */
+    if (loc->sector == 0)
+    {
+        watch_sector = 0x0f;
+    }
+    else
+    {
+        watch_sector = loc->sector - 1;
+    }
+
+    /* set drive */
+    if (loc->drive)
+    {
+        drv_ctrl |= DCTRL_DRIVE_2;
+    }
+    else
+    {
+        drv_ctrl |= DCTRL_DRIVE_1;
+    }
+
+    /* set side */
+    if (loc->side)
+    {
+        drv_ctrl |= DCTRL_SIDE_1;
+    }
+
+    /* start motor */
+    io_ctrl = CCMD_START_MOTORS | CTRL_IO_RESET | CTRL_ACQUIRE
+            | CTRL_ENABLE_VSYNC;
+    send_cmd (io_ctrl);
+
+    /* home track */
+    drv_ctrl |= DCTRL_STEPDIR_OUT;
+    drv_ctrl &= ~DCTRL_STEP_PULSE;
+    max_retry = 35;
+    while (~adv_stat1 & STAT1_TRACK_ZERO)
+    {
+        drive_step (drv_ctrl);
+        if (max_retry-- == 0)
+        {
+            bdos_c_writestr ("error: failed to step track to zero\n\r$");
+            goto exit;
+        }
+    }
+
+    /* step to loc->track */
+    drv_ctrl &= ~DCTRL_STEPDIR_MASK;
+    drv_ctrl |= DCTRL_STEPDIR_IN;
+
+    for (cur_track = 0; cur_track < loc->track; cur_track++)
+    {
+        drive_step (drv_ctrl);
+    }
+
+    /* sector selection */
+    max_retry = 11;
+    do {
+        while (~adv_stat1 & STAT1_SECTOR_MARK) {}
+        while (adv_stat1 & STAT1_SECTOR_MARK) {}
+
+        cur_sector = adv_stat2 & STAT2_CMD_SECTOR;
+        if (max_retry-- == 0)
+        {
+            bdos_c_writestr ("error: cannot find sector\n\r$");
+            goto exit;
+        }
+    } while (cur_sector != watch_sector);
+
+    /* check write protect */
+    if (adv_stat1 & STAT1_WRITE_PROTECT)
+    {
+        bdos_c_writestr ("error: disk is write protected\n\r$");
+        goto exit;
+    }
+
+    /* set precomp */
+    if (cur_track >= 15)
+    {
+        drv_ctrl |= DCTRL_PRECOMP;
+        adv_drive_ctrl = drv_ctrl;
+    }
+
+    while (n > 0)
+    {
+        /* reset registers incase cp/m calls reset them */
+        adv_drive_ctrl = drv_ctrl;
+        send_cmd (io_ctrl);
+
+        /* set write mode */
+        adv_set_write = 1;
+
+        /* write preamble */
+        for (i = 0; i <= 33; i++)
+        {
+            adv_disk_data = 0x00;
+        }
+
+        /* write sync codes */
+        /* sync 1 */
+        adv_disk_data = 0xfb;
+
+        /* sync2, as NS Graphical CP/M Bootloader handle it */
+        adv_disk_data = ((loc->track & 0x03) << 6) | (loc->side << 4) | loc->sector;
+
+        /* write data */
+        crc = 0;
+        oh = 0;
+        for (i = 0; i < DISK_SEC_SIZE; i++)
+        {
+            /* crc calc */
+            crc ^= *buf;
+            oh = (crc & 0x80) >> 7;
+            crc &= ~0x80;
+            crc <<= 1;
+            crc |= oh;
+
+            /* write data */
+            adv_disk_data = *buf++;
+        }
+
+        /* decriment buffer size */
+        if (n <= DISK_SEC_SIZE)
+        {
+            n = 0;
+        }
+        else 
+        {
+            n -= DISK_SEC_SIZE;
+        }
+
+        /* write crc */
+        adv_disk_data = crc;
+
+        /* log sector write completion */
+        bdos_c_write ('.');
+
+        /* sequential */
+        while (~adv_stat1 & STAT1_SECTOR_MARK) {}
+    }
+
+
+    retcode = 0; /* exit successfully */
+exit:
+    io_ctrl &= ~CCMD_MASK;  /* stop drive motor */
+    send_cmd (io_ctrl);
+    bdos_c_write ('\n');
+    bdos_c_write ('\r');
+    return retcode;
+}
 
 /* end of file */
