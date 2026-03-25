@@ -3,31 +3,34 @@
 #include "advantage_prom.h"
 #include "z80std.h"
 
-static void ret_cb (void);
-
 void
 _entry0 (void)
 {
-    uint8_t cursor[10] = {
-        0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff,
-    };
-    struct video_data vdata = { 0 };
+    struct pvid_data vdata = { 0 };
+    pvid_cursor_t cursor = PVID_CURSOR_DEFAULT;
+    vdata.pixel = PVID_STD_CHARSET,
+    vdata.ctemp = (uint8_t *)&cursor,
+
+    adv_mmu_slot0 = MMU_PAGE_VRAM_0;
+    adv_mmu_slot1 = MMU_PAGE_VRAM_1;
+    adv_mmu_slot2 = MMU_PAGE_PROM;
+
     adv_crt_scan = 0x00;
 
-    vdata.pixel = VID_STD_CHARSET;
-    vdata.retfp = ret_cb;
-    vdata.ctemp = cursor;
+    pvid_putchar ('H', &vdata);
+    pvid_putchar ('e', &vdata);
+    pvid_putchar ('l', &vdata);
+    pvid_putchar ('l', &vdata);
+    pvid_putchar ('o', &vdata);
+    pvid_putchar ('r', &vdata);
+    pvid_putchar ('l', &vdata);
+    pvid_putchar ('d', &vdata);
+    pvid_putchar (PVID_NEWLINE, &vdata);
 
-    prom_video_driver (&vdata);
-
-
-}
-
-static void
-ret_cb (void)
-{
-    return;
+    while (1)
+    {
+        cpu_halt ();
+    }
 }
 
 /* end of file */

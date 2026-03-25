@@ -1,28 +1,36 @@
 
-.SUFFIXES: .c .rel
+.SUFFIXES: .asm .c .rel
 
 EXTERNAL = ../external
 
-PORT_FLAGS = --std-sdcc99 -mz80 -pz80 --sdcccall 1
-EXTRA_CFLAGS  := $(PORT_FLAGS) --nostdinc -I. -I$(EXTERNAL)
-EXTRA_LDFLAGS := $(PORT_FLAGS) --nostdlib --no-std-crt0
+PORT_FLAGS = --std-sdcc99 -mz80 -pz80 --portmode=z80 --sdcccall 1 \
+             --nostdinc --nostdlib --no-std-crt0
+
+EXTRA_CFLAGS  := $(PORT_FLAGS) -I. -I$(EXTERNAL) \
+                 --callee-saves --fomit-frame-pointer
+
+EXTRA_LDFLAGS := $(PORT_FLAGS) --out-fmt-ihx \
+                 --xram-loc 0xc000 --xram-size 0x0800 \
+                 --code-loc 0xc00a
 
 build: hellorld.bin
 
 clean:
-	rm -f *.asm *.lst *.rel *.sym   # build artifacts
+	rm -f *.lst *.rel *.sym         # build artifacts
 	rm -f *.ihx *.lk *.map *.noi    # link artifacts 
 	rm -f .tmp.*                    # temporary build files
-	rm -f hellorld.bin
+	rm -f hellorld.asm hellorld.bin
 
 # hellorld
-.c.rel:
-	sdcc -c $< $(EXTRA_CFLAGS) $(CFLAGS)
+.asm.rel:
+	sdasz80 -glos $@ $<
 
-hellorld.ihx: hellorld.rel $(EXTERNAL)/z80std.rel
-	sdcc $^ $(EXTRA_LDFLAGS) $(LDFLAGS) \
-		--code-loc 0xc010 --code-size 0x05f0 \
-		--data-loc 0xc600 --stack-loc 0xc000
+.c.asm:
+	sdcc -E $< $(EXTRA_CFLAGS) $(CFLAGS) |\
+		sdcc --c1mode -o $@ $(EXTRA_CFLAGS) $(CFLAGS)
+
+hellorld.ihx: crt0.rel hellorld.rel $(EXTERNAL)/z80std.rel $(EXTERNAL)/advantage_prom.rel
+	sdcc -o $@ $^ $(EXTRA_LDFLAGS) $(LDFLAGS)
 
 hellorld.bin: hellorld.ihx
 	cp $< .tmp.$<
