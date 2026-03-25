@@ -268,4 +268,4 @@ _bdos_f_writezf:
 	call #0x0005
 	ret
 
-.area _CODE
+    .area _CODE
