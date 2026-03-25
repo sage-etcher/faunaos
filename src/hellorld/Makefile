@@ -11,7 +11,7 @@ EXTRA_CFLAGS  := $(PORT_FLAGS) -I. -I$(EXTERNAL) \
 
 EXTRA_LDFLAGS := $(PORT_FLAGS) --out-fmt-ihx \
                  --xram-loc 0xc000 --xram-size 0x0800 \
-                 --code-loc 0xc00a
+                 --code-loc 0xc010
 
 build: hellorld.bin
 
