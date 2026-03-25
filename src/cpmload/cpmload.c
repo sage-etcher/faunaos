@@ -381,13 +381,13 @@ raw_write_disk (struct disk_addr *loc, uint16_t n)
     bdos_c_writestr ("writing sectors:$");
 
     /* convert loc->sector to 0-8+F range of adv get_sector */
-    if (loc->sector == 0)
+    if (loc->sector == 9)
     {
         watch_sector = 0x0f;
     }
     else
     {
-        watch_sector = loc->sector - 1;
+        watch_sector = loc->sector;
     }
 
     /* set drive */
