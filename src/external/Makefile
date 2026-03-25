@@ -7,7 +7,7 @@ PORT_FLAGS = --std-sdcc99 -mz80 -pz80 --sdcccall 1
 EXTRA_CFLAGS  := $(PORT_FLAGS) --nostdinc -I. $(DEBUG_FLAGS)
 EXTRA_LDFLAGS := $(PORT_FLAGS) --nostdlib --no-std-crt0
 
-build: cpmstd.rel z80std.rel
+build: z80std.rel advantage_prom.rel cpmstd.rel
 
 clean:
 	rm -f *.lst *.rel *.sym
