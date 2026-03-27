@@ -1,0 +1,24 @@
+BUILD DEPENDENCIES
+
+- unix-like environment: rm, dd, sleep, timeout, ...
+- posix/gnu/bsd make
+- SDCC >= v4.2.0
+- hex2bin
+
+TEST DEPENDENCIES
+
+- sage-etcher/nsae
+
+BUILD
+
+    make
+
+BUILD OUTPUT FILES
+
+- src/**.com
+- src/**.bin
+
+INSTALL HELLORLD.BIN TO NS-ADV DISKETTE (DSDD, load BIN into sectors 4-8)
+
+    ./tools/extract_bootloader.sh hellorld_disk.nsi src/hellorld/hellorld.bin
+
