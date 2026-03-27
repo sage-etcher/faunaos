@@ -1,12 +1,14 @@
 
 #include "advantage.h"
 #include "advantage_prom.h"
+#include "crt0.h"
+#include "types.h"
 #include "z80std.h"
 
 void clear (void);
 
 void
-_entry0 (void)
+main (void)
 {
     struct pvid_data vdata = { 0 };
     pvid_cursor_t cursor = PVID_CURSOR_DEFAULT;
@@ -32,10 +34,7 @@ _entry0 (void)
     pvid_putchar ('d', &vdata);
     pvid_putchar (PVID_NEWLINE, &vdata);
 
-    while (1)
-    {
-        cpu_halt ();
-    }
+    return;
 }
 
 void
