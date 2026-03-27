@@ -3,7 +3,7 @@
 
 EXTERNAL = ../external
 
-PORT_FLAGS = --std-sdcc99 -mz80 -pz80 --portmode=z80 --sdcccall 1 \
+PORT_FLAGS = --std-sdcc99 -mz80 -pz80 --sdcccall 1 \
              --nostdinc --nostdlib --no-std-crt0
 
 EXTRA_CFLAGS  := $(PORT_FLAGS) -I. -I$(EXTERNAL) \
