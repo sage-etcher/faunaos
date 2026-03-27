@@ -6,6 +6,7 @@
 #include "z80std.h"
 
 void clear (void);
+void puts (struct pvid_data *vdata, char *s);
 
 void
 main (void)
@@ -21,24 +22,17 @@ main (void)
         .video = PVID_NORMAL,
     };
 
+    /* initialize display driver */
     adv_mmu_slot0 = MMU_PAGE_VRAM_0;
     adv_mmu_slot1 = MMU_PAGE_VRAM_1;
     adv_mmu_slot2 = MMU_PAGE_PROM;
 
-    /* clear screen */
     adv_crt_scan = 0x00;
-    clear ();
 
-    /* write character */
-    pvid_putchar ('H', &vdata);
-    pvid_putchar ('e', &vdata);
-    pvid_putchar ('l', &vdata);
-    pvid_putchar ('l', &vdata);
-    pvid_putchar ('o', &vdata);
-    pvid_putchar ('r', &vdata);
-    pvid_putchar ('l', &vdata);
-    pvid_putchar ('d', &vdata);
-    pvid_putchar (PVID_NEWLINE, &vdata);
+    /* print message */
+    clear ();
+    puts (&vdata, "Hellorld!\n\r");
+    puts (&vdata, "Hello, World!\n\r");
 
     return;
 }
@@ -61,6 +55,16 @@ clear (void)
             ptr = (uint8_t *)(((uint16_t)x << 8) | y);
             *ptr = 0x00;
         }
+    }
+}
+
+void
+puts (struct pvid_data *vdata, char *s)
+{
+    while (*s)
+    {
+        pvid_putchar (*s, vdata);
+        s++;
     }
 }
 
