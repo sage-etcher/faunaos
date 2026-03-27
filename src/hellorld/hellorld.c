@@ -10,10 +10,16 @@ void clear (void);
 void
 main (void)
 {
-    struct pvid_data vdata = { 0 };
     pvid_cursor_t cursor = PVID_CURSOR_DEFAULT;
-    vdata.pixel = PVID_STD_CHARSET,
-    vdata.ctemp = (uint8_t *)&cursor,
+    struct pvid_data vdata = {
+        .curx = 0,
+        .cury = 0,
+        .pixel = PVID_STD_CHARSET,
+        .scrct = 0,
+        .stats = PVID_STAT_SCROLL,
+        .ctemp = (uint8_t *)&cursor,
+        .video = PVID_NORMAL,
+    };
 
     adv_mmu_slot0 = MMU_PAGE_VRAM_0;
     adv_mmu_slot1 = MMU_PAGE_VRAM_1;
