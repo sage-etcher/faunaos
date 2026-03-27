@@ -1,4 +1,7 @@
-# Fauna OS
+# Fauna OS (WIP)
+
+NOTE: Only those listed under _Items_ are considered functional, the vast 
+majority of this project is incomplete and/or theory only.
 
 Unix-Like Micro-Kernel for the NorthStar Advantage Business Computer.
 
@@ -19,7 +22,11 @@ diskette.
   diskette image, `$1`, with bootloader file, `$2`, copied into side 0,
   track 0, sector 4. This is the Unix-like alternative to `CPMLOAD.COM`.
 
+- `src/external/*` SDCC C bindings for interfacing with CP/M, On-board PROM,
+  and Hardware Registers. All bindings assume `_sdcccall(1)` ABI and calling 
+  conventions.
+
 ## Copyright
 
-Copyright (c) 2026 Sage I. Hendricks
+Copyright (c) 2026 Sage I. Hendricks  
 Licensed with MIT
