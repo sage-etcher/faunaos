@@ -26,8 +26,8 @@ _pvid_putchar:
     ld ix,#0        ;ix = vdata
     add ix,de
     pop de          ;de = return_address
-    ld +6 (ix),d    ;vdata->retfp = return_addres
-    ld +7 (ix),e
+    ld +6 (ix),e    ;vdata->retfp = return_addres
+    ld +7 (ix),d
     ld hl,#0x87FD   ;call pvid_putchar (idk why sdcc doesnt like direct jp)
     jp (hl)
 
