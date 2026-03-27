@@ -12,16 +12,6 @@
 
 ; A: char c
 ;DE: struct pvid_data *vdata
-;_pvid_putchar:
-;    ld ix,de        ;ix = vdata
-;    pop de          ;de = return_addr
-;    ld +6 (ix),e    ;vdata->retfp = return_addr
-;    ld +7 (ix),d
-;    jp #0x87FD      ;call pvid_putchar
-
-
-; A: char c
-;DE: struct pvid_data *vdata
 _pvid_putchar:
     ld ix,#0        ;ix = vdata
     add ix,de
