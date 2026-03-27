@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+nsaectl set display foreground \#ffffff
+nsaectl set display inverted true
+nsaectl run
+

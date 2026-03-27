@@ -10,4 +10,5 @@
 bins/
 disks/
 logs/
-tools/
+tools/ddtz/
+disk_a.nsi

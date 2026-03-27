@@ -8,5 +8,16 @@ build clean:
 cleaner: clean
 	rm -f compile_commands.json
 
-PHONY: build clean
+disk_a.nsi: src/hellorld/hellorld.bin
+	./tools/extract_bootloader.sh $@ $<
+
+test: disk_a.nsi
+	-timeout 1 nsaectl quit
+	nsae -psA $< &
+	sleep 1
+	./tools/lightmode
+	nsaecli
+	-timeout 1 nsaectl quit
+
+PHONY: build clean cleaner test
 # end of file
