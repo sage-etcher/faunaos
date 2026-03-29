@@ -8,7 +8,7 @@ build clean:
 cleaner: clean
 	rm -f compile_commands.json
 
-disk_a.nsi: src/hellorld/hellorld.bin
+disk_a.nsi: src/hellorld/hellorld_boot.bin
 	./tools/extract_bootloader.sh $@ $<
 
 test: disk_a.nsi
