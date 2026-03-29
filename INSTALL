@@ -1,7 +1,7 @@
 BUILD DEPENDENCIES
 
 - unix-like environment: rm, dd, sleep, timeout, ...
-- posix/gnu/bsd make
+- gnumake
 - SDCC >= v4.2.0
 - hex2bin
 
