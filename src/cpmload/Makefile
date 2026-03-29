@@ -4,8 +4,8 @@ EXTERNAL=	../external
 
 PROG=	cpmload
 RELS=	cpmload.rel \
-		${EXTERNAL}/z80std.rel \
-		${EXTERNAL}/cpmstd.rel
+     	${EXTERNAL}/z80std.rel \
+     	${EXTERNAL}/cpmstd.rel
 
 CFLAGS +=	-DOS_CPM -I$(EXTERNAL)
 

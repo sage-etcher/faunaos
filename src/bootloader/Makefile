@@ -1,36 +1,15 @@
 
-.SUFFIXES: .c .rel
+MAKE_D_PATH=../../make.d
+EXTERNAL=	../external
 
-EXTERNAL = ../external
+PROG=	faunos-kernel
+RELS=	crt0.rel \
+     	bootloader.rel \
+     	${EXTERNAL}/advantage_prom.rel \
+     	${EXTERNAL}/z80std.rel
 
-PORT_FLAGS = --std-sdcc99 -mz80 -pz80 --sdcccall 1
-EXTRA_CFLAGS  := $(PORT_FLAGS) --nostdinc -I. -I$(EXTERNAL)
-EXTRA_LDFLAGS := $(PORT_FLAGS) --nostdlib --no-std-crt0
+CFLAGS +=	-I$(EXTERNAL)
 
-build: bootloader.bin
-
-clean:
-	rm -f *.asm *.lst *.rel *.sym   # build artifacts
-	rm -f *.ihx *.lk *.map *.noi    # link artifacts 
-	rm -f .tmp.*                    # temporary build files
-	rm -f bootloader.bin
-
-# bootloader
-.c.rel:
-	sdcc -c $< $(EXTRA_CFLAGS) $(CFLAGS)
-
-bootloader.ihx: bootloader.rel $(EXTERNAL)/z80std.rel
-	sdcc $^ $(EXTRA_LDFLAGS) $(LDFLAGS) \
-		--code-loc 0xc010 --code-size 0x05f0 \
-		--data-loc 0xc600 --stack-loc 0xc000
-
-bootloader.bin: bootloader.ihx
-	cp $< .tmp.$<
-	hex2bin -e bin -m 0x0800 -l 0x0800 -s 0xc000 .tmp.$< >/dev/null
-	printf '\xc0'         |dd of=.tmp.$@ bs=1 seek=0  count=1 conv=notrunc status=none
-	printf '\xc3\x10\xc0' |dd of=.tmp.$@ bs=1 seek=10 count=3 conv=notrunc status=none
-	mv .tmp.$@ $@
-	rm -f .tmp.$<
-
-PHONY: build clean
+include ${MAKE_D_PATH}/sdcc.boot.mk
+# vim: filetype=make
 # end of file
