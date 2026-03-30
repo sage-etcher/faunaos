@@ -7,6 +7,7 @@
 **.noi
 **.rel
 **.sym
+**.asm.bak
 bins/
 disks/
 logs/

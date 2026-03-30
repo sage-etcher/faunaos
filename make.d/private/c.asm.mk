@@ -9,10 +9,12 @@ CLEAN_ASM      ?=	y
 
 c_asm_clean:
 	-[ "x${CLEAN_ASM}" == "xy" ] && rm -f *.asm
+	rm -f *.asm.bak
 
 .c.asm:
 	${SDCC} -E $< ${DEFAULT_CFLAGS} ${CFLAGS} |\
 		${SDCC} --c1mode -o $@ ${DEFAULT_CFLAGS} ${CFLAGS}
+	cp -f $@ $@.bak
 
 # vim: filetype=make
 # end of file
