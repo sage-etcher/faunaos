@@ -1,4 +1,6 @@
 
+.SUFFIXES:
+
 MAKE_D_PATH ?= ./make.d
 
 DEFAULT_LDADD ?=	--std-sdcc99 -mz80 -pz80 --nostdlib --no-std-crt0 \

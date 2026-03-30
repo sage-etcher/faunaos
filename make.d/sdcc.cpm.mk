@@ -1,4 +1,6 @@
 
+.SUFFIXES:
+
 MAKE_D_PATH ?= ./make.d
 
 #PROG       =   foo
