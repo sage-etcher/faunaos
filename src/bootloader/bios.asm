@@ -87,7 +87,7 @@ _a_div_loop:            ;do {
     ld l,a
 _a_div_noadd:
     dec c               ;} while (--loop_counter != 0)
-    jz _a_div_loop
+    jp z,_a_div_loop
     ld a,h              ;h = quotient
     rla
     xor a,#0xff
