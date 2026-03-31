@@ -50,17 +50,66 @@ _send_io_ctrl_wait_cmd_ack:
     pop bc
     ret
 
-;A = (AL * 10)
-;static uint8_t a_mult_10(uint8_t x);
-_al_mult_10:
-    push bc     ;callee saves
-    and a,#0x0f ;ensure calculation doesnt overflow
-    rlca        ;b = x << 1
-    ld b,a
-    rlca        ;a = x << 3
+;static uint8_t a_mult_10 (uint8_t a);
+;max a = 25
+;error if CY
+_a_mult_10:
+    push de
+    rlca                            ;d = a << 1 (A = AL * 10)
+    ld d,a
+    rlca                            ;a = a << 3
     rlca
-    add a,b      ;a = (x << 1) + (x << 3)
+    add a,d                         ;a = a | d
+    pop de
+    ret
+
+;typedef union {
+;    uint16_t ret;
+;    struct { uint8_t quotient, remainder; };
+;} a_divmod_t;
+
+;a_divmod_t a_divmod (uint8_t divident, uint8_t divisor);
+_a_divmod:
+    push bc
+    ld h,a              ;h = a (divident)
+    ld b,#0             ;b = result
+    ld c,#8             ;c = loop_counter
+_a_div_loop:            ;do {
+    ld a,h              ;divident <<= 1
+    rla
+    ld h,a
+    ld a,b              ;result <<= 1
+    rla
+    sub a,l             ;result -= divisor
+    ld l,a
+    jp nc,a_div_no_add  ;fix underflow
+    add a,l
+    ld l,a
+_a_div_noadd:
+    dec c               ;} while (--loop_counter != 0)
+    jz _a_div_loop
+    ld a,h              ;h = quotient
+    rla
+    xor a,#0xff
+    ld h,a
+    ld l,b              ;l = remainder
     pop bc
+    ret
+
+;uint8_t a_div (uint8_t divident, uint8_t divisor);
+_a_div:
+    push hl
+    call _a_divmod      ;a_divmod (divident, divisor)
+    ld a,h              ;a = quotient
+    pop hl
+    ret
+
+;uint8_t a_mod (uint8_t divident, uint8_t divisor);
+_a_mod:
+    push hl
+    call _a_divmod      ;a_divmod (divident, divisor)
+    ld a,l              ;a = remainder 
+    pop hl
     ret
 
 ;void vid_set_cursor_shape (uint8_t shape);
@@ -68,8 +117,8 @@ _vid_set_cursor_shape:
     push de
     push hl
     and a,#0x03                     ;VID_CURSOR_SHAPE_MASK
-    call _al_mult_10                 ;offset = (uint16_t)(shape * 10)
-    ld d,a
+    call _a_mult_10                 ;a = shape * 10
+    ld d,a                          ;offset = (uint16_t)a
     ld e,#x00
     ld hl,_cursor_shape_list        ;p_cursor = cursor_shape_list + offset
     add hl,de
@@ -91,17 +140,27 @@ _cursor_shape_bar:      .dw 0x8080, 0x8080, 0x8080, 0x8080, 0x8080  ;bar
 ;void vid_set_cursor_position (uint16_t xy_position);
 _vid_set_cursor_position:
     push de
-    ld de,_prom_video_context+1 ;prom_video_context.y = y_pos
-    ld a,l
+    ld hl,_prom_video_context   ;hl = &prom_video_context.x
+    ld a,e                      ;prom_video_context.x = x_pos
     ld (de),a
-    dec de                      ;prom_video_context.x = x_pos * 10
-    ld a,h
-    call _al_mult_10        ;THIS WILL RUN OU:T OF BOUNDS x_pos may be >= 16
-    ld (de),a
+    inc hl                      ;hl = &prom_video_context.y
+    ld a,d                      ;a = y_pos * 10
+    call _a_mult_10
+    ld (de),a                   ;prom_video_context.y = a
     pop de
     ret
 
 _vid_get_cursor_position:
+    push de
+    ld de,_prom_video_context+1 ;de = &prom_video_context.y
+    ld a,(de)                   ;h = prom_video_context.y / 10
+    ld l,#10
+    call _a_div
+    ld h,a
+    dec de                      ;de = &prom_video_context.x
+    ld a,(de)                   ;l = prom_video_context.x
+    ld l,a
+    pop de
     ret
 
 ;void vid_write_c (uint8_t character, uint8_t count);
