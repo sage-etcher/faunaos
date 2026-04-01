@@ -22,7 +22,22 @@
     .globl _blk_read
     .globl _blk_write
 
+_adv_io_ctrl  = 0xf0
+_adv_io_stat1 = 0xe0
+_adv_io_stat2 = 0xd0
+
     .area _DATA
+    .area _INITIALIZED
+    .area _DABS (ABS)
+
+    .area _HOME
+    .area _GSINIT
+    .area _GSFINAL
+    .area _GSINIT
+
+    .area _HOME
+    .area _HOME
+
     .area _CODE
 
 _prom_video_context:    ;11 bytes
@@ -37,15 +52,15 @@ _prom_video_context:    ;11 bytes
 
 ;static void send_io_ctrl(uint8_t io_ctrl_value);
 _send_io_ctrl:
-    push bc             ;callee saves
-    ld b,a              ;protect io_ctrl_value in b
-    in a,(#0xe0)        ;get initial cmd_ack state
-    ld c,a              ;protect previous state in c
-    ld a,b              ;output io_ctrl_value
-    out (#0xf0),a
+    push bc                 ;callee saves
+    ld b,a                  ;protect io_ctrl_value in b
+    in a,(#_adv_io_stat1)   ;get initial cmd_ack state
+    ld c,a                  ;protect previous state in c
+    ld a,b                  ;output io_ctrl_value
+    out (#_adv_io_ctrl),a
 _send_io_ctrl_wait_cmd_ack:
-    in a,(#0xe0)        ;get cmd_ack state
-    xor a,c             ;loop until cmd_ack compliments
+    in a,(#_adv_io_stat1)   ;get cmd_ack state
+    xor a,c                 ;loop until cmd_ack compliments
     jp m,_send_io_ctrl_wait_cmd_ack
     pop bc
     ret
@@ -82,7 +97,7 @@ _a_div_loop:            ;do {
     rla
     sub a,l             ;result -= divisor
     ld l,a
-    jp nc,a_div_no_add  ;fix underflow
+    jp nc,_a_div_noadd   ;fix underflow
     add a,l
     ld l,a
 _a_div_noadd:
@@ -119,11 +134,11 @@ _vid_set_cursor_shape:
     and a,#0x03                     ;VID_CURSOR_SHAPE_MASK
     call _a_mult_10                 ;a = shape * 10
     ld d,a                          ;offset = (uint16_t)a
-    ld e,#x00
-    ld hl,_cursor_shape_list        ;p_cursor = cursor_shape_list + offset
+    ld e,#0x00
+    ld hl,#_cursor_shape_list        ;p_cursor = cursor_shape_list + offset
     add hl,de
     ex de,hl                        ;de = p_cursor
-    ld hl,_prom_video_context+8     ;hl = &prom_video_context.ctemp
+    ld hl,#_prom_video_context+8     ;hl = &prom_video_context.ctemp
     ld (hl),d                       ;*ctemp = p_cursor
     inc hl
     ld (hl),e
@@ -140,7 +155,7 @@ _cursor_shape_bar:      .dw 0x8080, 0x8080, 0x8080, 0x8080, 0x8080  ;bar
 ;void vid_set_cursor_position (uint16_t xy_position);
 _vid_set_cursor_position:
     push de
-    ld hl,_prom_video_context   ;hl = &prom_video_context.x
+    ld hl,#_prom_video_context  ;hl = &prom_video_context.x
     ld a,e                      ;prom_video_context.x = x_pos
     ld (de),a
     inc hl                      ;hl = &prom_video_context.y
@@ -152,13 +167,13 @@ _vid_set_cursor_position:
 
 _vid_get_cursor_position:
     push de
-    ld de,_prom_video_context+1 ;de = &prom_video_context.y
-    ld a,(de)                   ;h = prom_video_context.y / 10
+    ld de,#_prom_video_context+1    ;de = &prom_video_context.y
+    ld a,(de)                       ;h = prom_video_context.y / 10
     ld l,#10
     call _a_div
     ld h,a
-    dec de                      ;de = &prom_video_context.x
-    ld a,(de)                   ;l = prom_video_context.x
+    dec de                          ;de = &prom_video_context.x
+    ld a,(de)                       ;l = prom_video_context.x
     ld l,a
     pop de
     ret
@@ -166,15 +181,18 @@ _vid_get_cursor_position:
 ;void vid_write_c (uint8_t character, uint8_t count);
 _vid_write_c_raw:
     push bc
-    ld bc,(_prom_video_context) ;protect initial xy_position
-    or l,l                      ;while (count != 0) {
-    jp _vid_write_c_raw_check
+    ld b,a                          ;b = character
+    ld a,l                          ;test count
+    or a,a
+    ld a,b                          ;a = character
+    ld bc,(#_prom_video_context)    ;protect initial xy_position
+    jp _vid_write_c_raw_check       ;while (count != 0) {
 _vid_write_c_raw_loop:
-    call _vid_write_c           ;putchar (character)
-    dec l                       ;count--
+    call _vid_write_c               ;putchar (character)
+    dec l                           ;count--
 _vid_write_c_raw_check:
-    jnz _vid_write_c_raw_loop   ;} // while (count != 0)
-    ld (_prom_video_context),bc ;restore xy_position
+    jp nz,_vid_write_c_raw_loop     ;} // while (count != 0)
+    ld (_prom_video_context),bc     ;restore xy_position
     pop bc
     ret
 
@@ -185,14 +203,22 @@ _vid_write_c:
     push hl
     push ix
     push iy
-    out (#0xa0),#0x80           ;mmu setup  page0=vram0
-    out (#0xa1),#0x81           ;           page1=vram1
-    out (#0xa2),#0x84           ;           page2=prom
-    ld de,_prom_video_context   ;prom putchar
+    ld e,a                      ;protect character
+    ld a,#0x80                  ;mmu setup  page0=vram0
+    out (#0xa0),a
+    ld a,#0x81                  ;           page1=vram1
+    out (#0xa1),a
+    ld a,#0x84                  ;           page2=prom
+    out (#0xa2),a
+    ld a,e                      ;restore character
+    ld de,#_prom_video_context  ;prom putchar
     call _pvid_putchar
-    out (#0xa0),#0x00           ;mmu cleanup page0=ram0
-    out (#0xa1),#0x01           ;            page1=ram1
-    out (#0xa2),#0x02           ;            page2=ram2
+    ld a,#0x00                  ;mmu cleanup page0=ram0
+    out (#0xa0),a
+    ld a,#0x01                  ;            page1=ram1
+    out (#0xa1),a
+    ld a,#0x02                  ;            page2=ram2
+    out (#0xa2),a
     pop iy
     pop ix
     pop hl
@@ -201,17 +227,17 @@ _vid_write_c:
     ret
 
 _kb_enable_mi:
-    ld a,#0x9b          ;enable display int | io reset | toggle keyboard mi
+    ld a,#0x9b              ;enable display int | io reset | toggle keyboard mi
     call _send_io_ctrl
-    in a,(#0xd0)        ;check result of toggle
+    in a,(#_adv_io_stat2)   ;check result of toggle
     and a,#0x01
-    jp z,_kb_enable_mi  ;toggle again if it is disabled
+    jp z,_kb_enable_mi      ;toggle again if it is disabled
     ret
 
 _kb_get_status:
-    in a,(#0xe0)        ;get status
-    and a,#0x40         ;isolate keyboard data flag
-    ret                 ;a = 0 when no data is present, not 0 otherwise
+    in a,(#_adv_io_stat1)   ;get status
+    and a,#0x40             ;isolate keyboard data flag
+    ret                     ;a = 0 when no data is present, not 0 otherwise
 
 _kb_get_keycode:
     push bc
@@ -219,12 +245,12 @@ _kb_get_keycode:
     jp z,_kb_get_keycode    ;loop until keypress is available
     ld a,#0x99              ;get low nibble from character
     call _send_io_ctrl
-    in a,(#0xd0)
+    in a,(#_adv_io_stat2)
     and a,#0x0f
-    mov b,a                 ;store unfinished character in c
+    ld b,a                  ;store unfinished character in c
     ld a,#0x9a              ;get high nibble from character
     call _send_io_ctrl
-    in a,(#0xd0)
+    in a,(#_adv_io_stat2)
     and a,#0x0f
     rlca                    ;shift high nibble into upper 4 bits
     rlca
@@ -262,3 +288,6 @@ _blk_write:
     ret
 
     .area _CODE
+    .area _INITIALIZER
+    .area _CABS (ABS)
+; end of file
