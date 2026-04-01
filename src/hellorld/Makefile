@@ -2,19 +2,16 @@
 MAKE_D_PATH=../../make.d
 EXTERNAL=	../external
 
-CLEAN_ASM=	n
+CRT0_INC=	../boot-crt0
+CRT0_REL=	../boot-crt0/crt0.rel
+
 PROG=	hellorld
-RELS=	crt0.rel \
+RELS=	${CRT0_REL} \
      	hellorld.rel \
      	${EXTERNAL}/advantage_prom.rel \
      	${EXTERNAL}/z80std.rel
 
-CLEAN_DEPS +=	clean_specific_asm
-
-CFLAGS +=	-I$(EXTERNAL)
-
-clean_specific_asm:
-	rm -f hellorld.asm
+CFLAGS +=	-I$(EXTERNAL) -I${CRT0_INC}
 
 include ${MAKE_D_PATH}/sdcc.boot.mk
 # vim: filetype=make

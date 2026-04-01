@@ -13,7 +13,9 @@
 
 __entry0:
     ld sp,#0xffff
-    call _main
+    ld a,#0     ;argc
+    ld hl,#0    ;argv
+    call _main  ;(void)main (0,0)
 _exit:
     halt
     jp _exit

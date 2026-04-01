@@ -2,6 +2,7 @@
 build clean:
 	$(MAKE) -C src/external $@
 	$(MAKE) -C src/cpmload  $@
+	$(MAKE) -C src/boot-crt0 $@
 	$(MAKE) -C src/hellorld $@
 
 

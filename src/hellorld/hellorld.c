@@ -8,7 +8,7 @@
 void clear (void);
 void puts (struct pvid_data *vdata, char *s);
 
-void
+int
 main (void)
 {
     pvid_cursor_t cursor = PVID_CURSOR_DEFAULT;
@@ -34,7 +34,7 @@ main (void)
     puts (&vdata, "Hellorld!\n\r");
     puts (&vdata, "Hello, World!\n\r");
 
-    return;
+    return 0;
 }
 
 void
