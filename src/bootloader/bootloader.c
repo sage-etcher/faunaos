@@ -55,11 +55,11 @@ main (void)
 
         switch (c)
         {
-        case 0x0d: /* return */
-            vid_write_c (PVID_NEWLINE);
-            break;
+        /* return */
+        case 0x0d: vid_write_c (PVID_NEWLINE); break;
 
-        case 0x7f: /* backspace */
+        /* backspace */
+        case 0x7f: 
             vid_write_c (PVID_CURSOR_LEFT);
             vid_write_c (' ');
             vid_write_c (PVID_CURSOR_LEFT);
@@ -72,42 +72,23 @@ main (void)
         case 0x34: vid_set_cursor_shape (VID_CURSOR_SHAPE_BAR);    break;
 
         /* arrows */
-        case 0x84: /* down+left */
-            vid_write_c (PVID_CURSOR_LEFT);
-            vid_write_c (PVID_CURSOR_DOWN);
+        case 0x84: vid_write_c (PVID_CURSOR_DOWN);  /* down+left */
+        case 0x88: vid_write_c (PVID_CURSOR_LEFT);  /*      left */
             break;
 
-        case 0x8a: /* down */
-            vid_write_c (PVID_CURSOR_DOWN);
+        case 0x83: vid_write_c (PVID_CURSOR_RIGHT);  /* down+right */
+        case 0x8a: vid_write_c (PVID_CURSOR_DOWN);   /* down */
             break;
 
-        case 0x83: /* down+right */
-            vid_write_c (PVID_CURSOR_RIGHT);
-            vid_write_c (PVID_CURSOR_DOWN);
+        case 0x87: vid_write_c (PVID_CURSOR_LEFT);  /* up+left */
+        case 0x82: vid_write_c (PVID_CURSOR_UP);    /* up */
             break;
 
-        case 0x88: /* left */
-            vid_write_c (PVID_CURSOR_LEFT);
+        case 0x89: vid_write_c (PVID_CURSOR_UP);    /* up+right */
+        case 0x86: vid_write_c (PVID_CURSOR_RIGHT); /*    right */
             break;
 
-        case 0x86: /* right */
-            vid_write_c (PVID_CURSOR_RIGHT);
-            break;
-
-        case 0x87: /* up+left */
-            vid_write_c (PVID_CURSOR_LEFT);
-            vid_write_c (PVID_CURSOR_UP);
-            break;
-
-        case 0x82: /* up */
-            vid_write_c (PVID_CURSOR_UP);
-            break;
-
-        case 0x89: /* up+right */
-            vid_write_c (PVID_CURSOR_RIGHT);
-            vid_write_c (PVID_CURSOR_UP);
-            break;
-
+        /* everything else */
         default:
             vid_write_c (c);
         }
