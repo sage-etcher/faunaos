@@ -6,11 +6,10 @@ CLEAN_ASM=	n
 CRT0_INC=	../boot-crt0
 CRT0_REL=	../boot-crt0/crt0.rel
 
-PROG=	faunos-kernel
+PROG=	bootloader
 RELS=	${CRT0_REL} \
      	bootloader.rel \
 		bios.rel \
-     	floppy_driver.rel \
      	${EXTERNAL}/advantage_prom.rel \
      	${EXTERNAL}/z80std.rel
 
@@ -21,7 +20,7 @@ CLEAN_DEPS +=	custom_clean
 all: build
 
 custom_clean:
-	rm -f bootloader.asm
+	rm -f bootloader.asm.bak
 
 include ${MAKE_D_PATH}/sdcc.boot.mk
 # vim: filetype=make
