@@ -5,7 +5,8 @@
 PROG_IHX ?= ${PROG}.ihx
 
 SDCC          ?=	sdcc
-DEFAULT_LDADD ?=	--std-sdcc99 -mz80 -pz80 --nostdlib --no-std-crt0
+DEFAULT_LDADD ?=	--std-sdcc99 -mz80 -pz80 --nostdlib --no-std-crt0 \
+                	--code-loc ${ORG_ADDR}
 
 rels_ihx_clean:
 	rm -f ${PROG_IHX}

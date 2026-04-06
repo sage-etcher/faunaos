@@ -12,6 +12,8 @@ MAKE_D_PATH ?= ./make.d
 PROG_BIN ?= ${PROG}.com
 
 ORG_ADDR=	0x0100
+
+BIN_ADDR=	0x0100
 FILETYPE=	com
 BLK_SIZE=	128
 

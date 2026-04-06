@@ -6,7 +6,9 @@ MAKE_D_PATH ?= ./make.d
 DEFAULT_LDADD ?=	--std-sdcc99 -mz80 -pz80 --nostdlib --no-std-crt0 \
                 	--xram-loc 0xc000 --xram-size 0x0800 --code-loc 0xc010
 
-ORG_ADDR ?=	0xc000
+ORG_ADDR ?=	0xc010
+
+BIN_ADDR ?=	0xc000
 FILETYPE ?=	bin
 BLK_SIZE ?=	512
 

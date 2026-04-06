@@ -8,7 +8,7 @@ PROG_IHX ?= ${PROG}.ihx
 PROG_BIN ?= ${PROG}.${FILETYPE}
 
 HEX2BIN          ?=	hex2bin
-DEFAULT_H2BFLAGS ?=	-e ${FILETYPE} -m ${BLK_SIZE} -s ${ORG_ADDR}
+DEFAULT_H2BFLAGS ?=	-e ${FILETYPE} -m ${BLK_SIZE} -s ${BIN_ADDR}
 
 ihx_bin_clean:
 	rm -f ${PROG_BIN}
