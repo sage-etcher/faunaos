@@ -17,7 +17,7 @@
 #define PVID_CURSOR_OFF         0x19    /* CTRL-Y */
 #define PVID_NEWLINE            0x1F    /* CTRL-_ */
 #define PVID_HOME_CURSOR        0x1E    /* CTRL-^ */
-#define PVID_CURSOR_LEFT        PVID_PACKSPACE
+#define PVID_CURSOR_LEFT        PVID_BACKSPACE
 #define PVID_CURSOR_DOWN        PVID_LINE_FEED
 #define PVID_CURSOR_UP          PVID_REVERSE_LINE_FEED
 #define PVID_CURSOR_RIGHT       PVID_FORESPACE
