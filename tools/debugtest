@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+./pc2adv ./src/cpmload/cpmload.com CPMLOAD.COM
+./pc2adv ./src/bootloader/bootloader_boot.bin FAUNBOOT.BIN
+

@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+srcfile=$1
+dstfile=$2
+size=`du -B 256 "$srcfile" |awk '{ print $1 }'`
+nsaectl load mmu 0x0100 "$srcfile"
+nsaectl press "SAVE $size $dstfile\n" string
+sleep 1
