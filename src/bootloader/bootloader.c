@@ -1,46 +1,125 @@
 
-#include "floppy_driver.h"
+#include "bios.h"
 
-#include "advantage.h"
-#include "types.h"
+#include "advantage_prom.h"
 #include "z80std.h"
 
+uint8_t
+getchar (void)
+{
+    uint8_t c = kb_get_keycode ();
+    vid_write_c (c);
 
-int
+    return c;
+}
+
+void
+puts (char *s)
+{
+    register char c;
+    while ((c = *s++))
+    {
+        vid_write_c (c);
+    }
+    vid_write_c (PVID_NEWLINE);
+}
+
+void
 main (void)
 {
-    register uint8_t rc = 0;
+    /* clear screen */
+    vid_write_c (PVID_HOME_CURSOR);
+    vid_write_c (PVID_CLEAR_TO_EO_SCREEN);
 
-    /* init mmu */
-    adv_mmu_slot0 = MMU_PAGE_VRAM_0;
-    adv_mmu_slot1 = MMU_PAGE_VRAM_1;
-    adv_mmu_slot2 = MMU_PAGE_PROM;
+    /* hellorld */
+    puts ("Hellorld!");
 
-    adv_crt_scan = 0;   /* init display */
+    /* prompt for each cursor shape */
+    vid_set_cursor_shape (VID_CURSOR_SHAPE_BLOCK);
+    (void)getchar ();
 
-    /* read rest of bootloader from disk0:0:0:8 onwards into 0xc800 */
-    const uint16_t EXT_BOOTLOADER_ADDR = 0xc800;
-    const uint16_t EXT_BOOTLOADER_BLK_CNT = 3;
-    rc |= floppy_set_drive  (0);
-    rc |= floppy_set_side   (0);
-    rc |= floppy_set_track  (0);
-    rc |= floppy_set_sector (8);
-    rc |= floppy_read ((void *)EXT_BOOTLOADER_ADDR, EXT_BOOTLOADER_BLK_CNT);
-    if (rc)
-    {
-        /* error reading extended bootloader from disk */
-        return 1;
-    }
+    vid_set_cursor_shape (VID_CURSOR_SHAPE_HOLLOW);
+    (void)getchar ();
 
-    /* transfer control to kernel */
+    vid_set_cursor_shape (VID_CURSOR_SHAPE_LINE);
+    (void)getchar ();
+
+    vid_set_cursor_shape (VID_CURSOR_SHAPE_BAR);
+    (void)getchar ();
+
+    vid_write_c (PVID_NEWLINE);
+    vid_write_c ('>');
+    register uint8_t c;
+    do {
+        c = kb_get_keycode ();
+
+        switch (c)
+        {
+        case 0x0d: /* return */
+            vid_write_c (PVID_NEWLINE);
+            break;
+
+        case 0x7f: /* backspace */
+            vid_write_c (PVID_CURSOR_LEFT);
+            vid_write_c (' ');
+            vid_write_c (PVID_CURSOR_LEFT);
+            break;
+
+        /* numbers */
+        case 0x31: vid_set_cursor_shape (VID_CURSOR_SHAPE_BLOCK);  break;
+        case 0x32: vid_set_cursor_shape (VID_CURSOR_SHAPE_HOLLOW); break;
+        case 0x33: vid_set_cursor_shape (VID_CURSOR_SHAPE_LINE);   break;
+        case 0x34: vid_set_cursor_shape (VID_CURSOR_SHAPE_BAR);    break;
+
+        /* arrows */
+        case 0x84: /* down+left */
+            vid_write_c (PVID_CURSOR_LEFT);
+            vid_write_c (PVID_CURSOR_DOWN);
+            break;
+
+        case 0x8a: /* down */
+            vid_write_c (PVID_CURSOR_DOWN);
+            break;
+
+        case 0x83: /* down+right */
+            vid_write_c (PVID_CURSOR_RIGHT);
+            vid_write_c (PVID_CURSOR_DOWN);
+            break;
+
+        case 0x88: /* left */
+            vid_write_c (PVID_CURSOR_LEFT);
+            break;
+
+        case 0x86: /* right */
+            vid_write_c (PVID_CURSOR_RIGHT);
+            break;
+
+        case 0x87: /* up+left */
+            vid_write_c (PVID_CURSOR_LEFT);
+            vid_write_c (PVID_CURSOR_UP);
+            break;
+
+        case 0x82: /* up */
+            vid_write_c (PVID_CURSOR_UP);
+            break;
+
+        case 0x89: /* up+right */
+            vid_write_c (PVID_CURSOR_RIGHT);
+            vid_write_c (PVID_CURSOR_UP);
+            break;
+
+        default:
+            vid_write_c (c);
+        }
+    } while (c != 'q');
+    vid_write_c (PVID_NEWLINE);
 
     /* exit */
+    puts ("done");
     while (1)
     {
-        z80_halt ();
+        cpu_halt ();
     }
-
-    return 0;
 }
 
 /* end of file */
