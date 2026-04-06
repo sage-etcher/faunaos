@@ -6,8 +6,6 @@
     .globl _vid_get_cursor_position
     .globl _vid_write_c_raw
     .globl _vid_write_c
-    .globl _vid_scroll_up
-    .globl _vid_scroll_down
 
     .globl _kb_get_status
     .globl _kb_get_keycode
@@ -133,22 +131,22 @@ _vid_set_cursor_shape:
     push hl
     and a,#0x03                     ;VID_CURSOR_SHAPE_MASK
     call _a_mult_10                 ;a = shape * 10
-    ld d,a                          ;offset = (uint16_t)a
-    ld e,#0x00
+    ld e,a                          ;offset = (uint16_t)a
+    ld d,#0x00
     ld hl,#_cursor_shape_list        ;p_cursor = cursor_shape_list + offset
     add hl,de
     ex de,hl                        ;de = p_cursor
     ld hl,#_prom_video_context+8     ;hl = &prom_video_context.ctemp
-    ld (hl),d                       ;*ctemp = p_cursor
+    ld (hl),e                       ;*ctemp = p_cursor
     inc hl
-    ld (hl),e
+    ld (hl),d
     pop de
     pop hl
     ret
 
 _cursor_shape_list:
 _cursor_shape_block:    .dw 0xffff, 0xffff, 0xffff, 0xffff, 0xffff  ;block
-_cursor_shape_hollow:   .dw 0x81ff, 0x8181, 0x8181, 0x8181, 0x81ff  ;hollow
+_cursor_shape_hollow:   .dw 0x81ff, 0x8181, 0x8181, 0x8181, 0xff81  ;hollow
 _cursor_shape_line:     .dw 0x0000, 0x0000, 0x0000, 0x0000, 0xff00  ;line
 _cursor_shape_bar:      .dw 0x8080, 0x8080, 0x8080, 0x8080, 0x8080  ;bar
 
@@ -231,18 +229,19 @@ _kb_enable_mi:
     call _send_io_ctrl
     in a,(#_adv_io_stat2)   ;check result of toggle
     and a,#0x01
-    jp z,_kb_enable_mi      ;toggle again if it is disabled
+    jp nz,_kb_enable_mi     ;toggle again if it is disabled
     ret
 
 _kb_get_status:
-    in a,(#_adv_io_stat1)   ;get status
+    call _kb_enable_mi      ;enable keyboard maskable interupt
+    in a,(#_adv_io_stat2)   ;get status
     and a,#0x40             ;isolate keyboard data flag
     ret                     ;a = 0 when no data is present, not 0 otherwise
 
 _kb_get_keycode:
-    push bc
     call _kb_get_status     ;get status
     jp z,_kb_get_keycode    ;loop until keypress is available
+    push bc
     ld a,#0x99              ;get low nibble from character
     call _send_io_ctrl
     in a,(#_adv_io_stat2)
