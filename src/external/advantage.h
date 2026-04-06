@@ -6,7 +6,7 @@
 #define CCMD_SHOW_SECTOR    0x00
 #define CCMD_KB_LSB         0x01
 #define CCMD_KB_MSB         0x02
-#define CCMD_KB_NI          0x03
+#define CCMD_KB_MI          0x03
 #define CCMD_CURSOR_LOCK    0x04
 #define CCMD_START_MOTORS   0x05
 #define CCMD_KB_NMI_P1      0x06
