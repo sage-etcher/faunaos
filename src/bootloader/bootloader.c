@@ -24,6 +24,17 @@ puts (char *s)
     vid_write_c (PVID_NEWLINE);
 }
 
+char
+xtoc (uint8_t x)
+{
+    x &= 0x0f;
+    if (x >= 0x0a)
+    {
+        return x + 'a' - 10;
+    }
+    return x + '0';
+}
+
 void
 main (void)
 {
@@ -35,34 +46,48 @@ main (void)
     puts ("Hellorld!");
 
     /* prompt for each cursor shape */
-    vid_set_cursor_shape (VID_CURSOR_SHAPE_BLOCK);
-    (void)getchar ();
+    //vid_set_cursor_position (VID_POS_SET_XY (10, 10));
+    //vid_write_c_raw ('$', 10);
+    //vid_set_cursor_shape (VID_CURSOR_SHAPE_BLOCK);
+    //(void)getchar ();
 
-    vid_set_cursor_shape (VID_CURSOR_SHAPE_HOLLOW);
-    (void)getchar ();
+    //vid_set_cursor_shape (VID_CURSOR_SHAPE_HOLLOW);
+    //(void)getchar ();
 
-    vid_set_cursor_shape (VID_CURSOR_SHAPE_LINE);
-    (void)getchar ();
+    //vid_set_cursor_shape (VID_CURSOR_SHAPE_LINE);
+    //(void)getchar ();
 
-    vid_set_cursor_shape (VID_CURSOR_SHAPE_BAR);
-    (void)getchar ();
+    //vid_set_cursor_shape (VID_CURSOR_SHAPE_BAR);
+    //(void)getchar ();
 
-    vid_write_c (PVID_NEWLINE);
+    /* prompt for control codes */
+    vid_set_cursor_position (VID_POS_SET_XY (10, 20));
     vid_write_c ('>');
+
+    uint16_t pos = vid_get_cursor_position ();
+    vid_write_c (xtoc (pos >> 12)); /* n */
+    vid_write_c (xtoc (pos >>  8)); /* o */
+    vid_write_c (xtoc (pos >>  4)); /* 0 */
+    vid_write_c (xtoc (pos >>  0)); /* l */
     register uint8_t c;
+
+    vid_set_cursor_position (pos);
+    vid_write_c ('#');
+
     do {
         c = kb_get_keycode ();
 
         switch (c)
         {
+        case 'h': vid_set_cursor_position (pos); break;
+
         /* return */
         case 0x0d: vid_write_c (PVID_NEWLINE); break;
 
         /* backspace */
         case 0x7f: 
             vid_write_c (PVID_CURSOR_LEFT);
-            vid_write_c (' ');
-            vid_write_c (PVID_CURSOR_LEFT);
+            vid_write_c_raw (' ', 1);
             break;
 
         /* numbers */
@@ -91,6 +116,7 @@ main (void)
         /* everything else */
         default:
             vid_write_c (c);
+            break;
         }
     } while (c != 'q');
     vid_write_c (PVID_NEWLINE);
