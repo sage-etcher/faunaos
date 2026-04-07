@@ -77,42 +77,41 @@ _a_mult_10:
     ret
 
 ;typedef union {
-;    uint16_t ret;
-;    struct { uint8_t quotient, remainder; };
-;} a_divmod_t;
+;    uint16_t hl_ret;
+;    struct { uint8_t h_quotient, l_remainder; };
+;} divmod8_t;
 
-;a_divmod_t a_divmod (uint8_t divident, uint8_t divisor);
-_a_divmod:
+;divmod8_t a_divmod_l (uint8_t divident, uint8_t divisor);
+_a_divmod_l:
     push bc
-    ld h,a              ;h = a (divident)
-    ld b,#0             ;b = result
-    ld c,#8             ;c = loop_counter
-_a_div_loop:            ;do {
-    ld a,h              ;divident <<= 1
+    ld h,a                  ;H divident
+    ld c,#9                 ;counter = 9
+    xor a,a                 ;remainder = 0
+_a_divmod_l_loop:
+    ld b,a                  ;remainder = a
+    ld a,h                  ;divident <<= 1
     rla
     ld h,a
-    ld a,b              ;result <<= 1
+    dec c                   ;counter--
+    jp z,_a_divmod_l_exit   ;if (counter == 0) goto exit
+    ld a,b                  ;remainder <<= 1
     rla
-    sub a,l             ;result -= divisor
-    ld l,a
-    jp nc,_a_div_noadd   ;fix underflow
-    add a,l
-    ld l,a
-_a_div_noadd:
-    dec c               ;} while (--loop_counter != 0)
-    jp z,_a_div_loop
-    ld a,h              ;h = quotient
-    rla
-    xor a,#0xff
-    ld h,a
-    ld l,b              ;l = remainder
+    sub a,l                 ;remainder -= divisor
+    jp nc,_a_divmod_l_loop  ;loop
+    add a,l                 ;remainder += divisor (and set CY)
+    jp _a_divmod_l_loop
+_a_divmod_l_exit:
+    ld a,h                  ;~divident
+    cpl
+    ld h,a                  ;h = quotient
+    ld l,b                  ;l = remainder
     pop bc
     ret
 
 ;uint8_t a_div (uint8_t divident, uint8_t divisor);
 _a_div:
     push hl
-    call _a_divmod      ;a_divmod (divident, divisor)
+    call _a_divmod_l    ;a_divmod_l (divident, divisor)
     ld a,h              ;a = quotient
     pop hl
     ret
@@ -120,7 +119,7 @@ _a_div:
 ;uint8_t a_mod (uint8_t divident, uint8_t divisor);
 _a_mod:
     push hl
-    call _a_divmod      ;a_divmod (divident, divisor)
+    call _a_divmod_l    ;a_divmod_l (divident, divisor)
     ld a,l              ;a = remainder 
     pop hl
     ret
@@ -129,6 +128,10 @@ _a_mod:
 _vid_set_cursor_shape:
     push de
     push hl
+    push af
+    ld a,#0x19                      ;cursor off
+    call _vid_write_c
+    pop af
     and a,#0x03                     ;VID_CURSOR_SHAPE_MASK
     call _a_mult_10                 ;a = shape * 10
     ld e,a                          ;offset = (uint16_t)a
@@ -140,6 +143,8 @@ _vid_set_cursor_shape:
     ld (hl),e                       ;*ctemp = p_cursor
     inc hl
     ld (hl),d
+    ld a,#0x18                      ;cursor on
+    call _vid_write_c
     pop de
     pop hl
     ret
@@ -151,27 +156,33 @@ _cursor_shape_line:     .dw 0x0000, 0x0000, 0x0000, 0x0000, 0xff00  ;line
 _cursor_shape_bar:      .dw 0x8080, 0x8080, 0x8080, 0x8080, 0x8080  ;bar
 
 ;void vid_set_cursor_position (uint16_t xy_position);
+;register l uint8_t x_pos
+;register h uint8_t y_pos
 _vid_set_cursor_position:
     push de
-    ld hl,#_prom_video_context  ;hl = &prom_video_context.x
-    ld a,e                      ;prom_video_context.x = x_pos
+    ld a,#0x19                  ;cursor off
+    call _vid_write_c
+    ld de,#_prom_video_context  ;de = &prom_video_context.x
+    ld a,l                      ;prom_video_context.x = x_pos
     ld (de),a
-    inc hl                      ;hl = &prom_video_context.y
-    ld a,d                      ;a = y_pos * 10
+    inc de                      ;de = &prom_video_context.y
+    ld a,h                      ;a = y_pos * 10
     call _a_mult_10
     ld (de),a                   ;prom_video_context.y = a
+    ld a,#0x18                  ;cursor on
+    call _vid_write_c
     pop de
     ret
 
 _vid_get_cursor_position:
     push de
     ld de,#_prom_video_context+1    ;de = &prom_video_context.y
-    ld a,(de)                       ;h = prom_video_context.y / 10
+    ld a,(de)                       ;y_pox(h) = prom_video_context.y / 10
     ld l,#10
     call _a_div
     ld h,a
     dec de                          ;de = &prom_video_context.x
-    ld a,(de)                       ;l = prom_video_context.x
+    ld a,(de)                       ;x_pos(l) = prom_video_context.x
     ld l,a
     pop de
     ret
@@ -179,18 +190,24 @@ _vid_get_cursor_position:
 ;void vid_write_c (uint8_t character, uint8_t count);
 _vid_write_c_raw:
     push bc
+    push de
     ld b,a                          ;b = character
-    ld a,l                          ;test count
-    or a,a
-    ld a,b                          ;a = character
-    ld bc,(#_prom_video_context)    ;protect initial xy_position
+    ld a,#0x19                      ;cursor off
+    call _vid_write_c
+    ld de,(#_prom_video_context)    ;protect initial xy_position
     jp _vid_write_c_raw_check       ;while (count != 0) {
 _vid_write_c_raw_loop:
+    ld a,b                          ;a = character
     call _vid_write_c               ;putchar (character)
     dec l                           ;count--
 _vid_write_c_raw_check:
+    ld a,l                          ;test count
+    or a,a
     jp nz,_vid_write_c_raw_loop     ;} // while (count != 0)
-    ld (_prom_video_context),bc     ;restore xy_position
+    ld (#_prom_video_context),de    ;restore xy_position
+    ld a,#0x18                      ;cursor on
+    call _vid_write_c
+    pop de
     pop bc
     ret
 

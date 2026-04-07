@@ -11,8 +11,8 @@
 #define VID_CURSOR_SHAPE_MASK   0x03
 
 #define VID_POS_GET_X(pos) (pos & 0x00ff);
-#define VID_POS_GET_Y(pos) ((pos & 0xff00) >> 4);
-#define VID_POS_SET_XY(x,y) (((y) << 4) | (x))
+#define VID_POS_GET_Y(pos) ((pos & 0xff00) >> 8);
+#define VID_POS_SET_XY(x,y) (((y) << 8) | (x))
 
 void vid_set_cursor_shape (uint8_t shape);
 void vid_set_cursor_position (uint16_t position);
