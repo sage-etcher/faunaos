@@ -276,6 +276,27 @@ _kb_get_keycode:
     pop bc
     ret
 
+_blk_context:
+    .ds 1   ;drive
+    .ds 2   ;platter
+    .ds 2   ;cylinder
+    .ds 2   ;sector
+    .ds 1   ;stats
+
+_blk_devices:
+    .db 0       ;drive A
+    .db 0       ;type floppy
+    .dw 2       ;max platters
+    .dw 35      ;max cylinder
+    .dw 10      ;max sector
+
+    .db 0       ;drive B
+    .db 0       ;type floppy
+    .dw 2       ;max platters
+    .dw 35      ;max cylinder
+    .dw 10      ;max sector
+
+
 _blk_reset:
     ret
 
