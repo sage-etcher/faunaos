@@ -1,5 +1,5 @@
 
-    .module FAUNAOS_BIOS
+    .module faunaos_bios
 
     .globl _vid_set_cursor_shape
     .globl _vid_set_cursor_position
@@ -16,7 +16,8 @@
     .globl _blk_set_cylinder
     .globl _blk_set_sector
     .globl _blk_set_write_protect
-    .globl _blk_get_write_portect
+    .globl _blk_unset_write_protect
+    .globl _blk_get_write_protect
     .globl _blk_read
     .globl _blk_write
 
@@ -74,6 +75,26 @@ _a_mult_10:
     rlca
     add a,d                         ;a = a | d
     pop de
+    ret
+
+;static uint16_t a_mult_l (uint8_t a, uint8_t l);
+_a_mult_l:
+    push bc
+    push de
+    ld d,#0
+    ld e,l
+    ld h,a
+    ld l,d
+    ld c,#8
+_a_mult_l_loop:
+    add hl,hl
+    jp nc,_a_mult_l_noadd
+    add hl,de
+_a_mult_l_noadd:
+    dec c
+    jp nz,_a_mult_l_loop
+    pop de
+    pop bc
     ret
 
 ;typedef union {
@@ -276,46 +297,193 @@ _kb_get_keycode:
     pop bc
     ret
 
+_blk_stat_write_protect = 0x01
+_blk_stat_error         = 0x80
+
+_sizeof_blk_context = 7
 _blk_context:
-    .ds 1   ;drive
-    .ds 2   ;platter
-    .ds 2   ;cylinder
-    .ds 2   ;sector
+    .ds 1   ;drive_index
+    .ds 2   ;drive ptr
+    .ds 1   ;platter
+    .ds 1   ;cylinder
+    .ds 1   ;sector
     .ds 1   ;stats
 
+
+_blk_type_floppy    = 0
+_blk_type_serial    = 1
+_blk_type_ram       = 2
+_blk_type_harddrive = 3
+
+_sizeof_blk_device  = 6
+_blk_device_cnt = 2
 _blk_devices:
-    .db 0       ;drive A
-    .db 0       ;type floppy
-    .dw 2       ;max platters
-    .dw 35      ;max cylinder
-    .dw 10      ;max sector
+    .db _blk_type_floppy    ;type floppy
+    .db 2                   ;max platters
+    .db 35                  ;max cylinder
+    .db 10                  ;max sector
+    .dw 0x01                ;args: (hw disk select)
 
-    .db 0       ;drive B
-    .db 0       ;type floppy
-    .dw 2       ;max platters
-    .dw 35      ;max cylinder
-    .dw 10      ;max sector
+    .db _blk_type_floppy    ;type floppy
+    .db 2                   ;max platters
+    .db 35                  ;max cylinder
+    .db 10                  ;max sector
+    .dw 0x02                ;args: (hw disk select)
 
+_err_ok         = 0x00
+_err_null_deref = 0x01
+_err_range      = 0x02
 
+;void memset (void *buf, uint8_t byte, size_t n);
+_memset:
+    push bc
+    push de
+    ex de,hl            ;de = buf
+    ld hl,#6            ;hl = &n
+    add hl,sp
+    ld c,(hl)           ;bc = n
+    inc hl
+    ld b,(hl)
+    ld l,a              ;l = byte
+_memset_loop:
+    ld a,b              ;while (n != 0) {
+    or a,c
+    jp z,_memset_exit
+    ld a,l              ;    *buf = byte
+    ld (de),a
+    inc de              ;    buff++;
+    dec bc              ;    n--;
+    jp _memset_loop     ;}
+_memset_exit:
+    pop de
+    pop bc
+    ret
+
+;void blk_reset (void)
 _blk_reset:
+    push hl                     ;callee saves
+    push de
+    ld hl,#_blk_context         ;memset (blk_context, 0, sizeof_blk_context);
+    ld a,#0
+    ld de,#_sizeof_blk_context
+    push de
+    call _memset
+    pop de
+    pop de                      ;callee restores
+    pop hl
     ret
 
+;uint8_t blk_set_drive (uint8_t drive_index)
 _blk_set_drive:
+    push hl
+    push de
+    cp a,#_blk_device_cnt       ;if (drive_index >= blk_set_drive_valid) {
+    jp c,_blk_set_drive_valid
+    ld a,#_err_range            ;    return err_range
+    jp _blk_fn_return
+_blk_set_drive_valid:           ;}
+    ld (#_blk_context+0),a      ;blk_context.drive_index = drive_index
+    ld l,#_sizeof_blk_device    ;hl = &blk_devices[drive_index]
+    call _a_mult_l
+    ld h,#0
+    ld l,a
+    ld de,#_blk_devices
+    add hl,de
+    ex de,hl                    ;de = hl
+    ld hl,#_blk_context+1       ;blk_context.drive_ptr = de
+    ld (hl),e
+    inc hl
+    ld (hl),d
+    xor a,a                     ;return 0
+    jp _blk_fn_return
+
+;hl = blk_context.drive_ptr on success
+;a = err_null_deref and return from parent on failure
+_blk_deref_drive_ptr:
+    ld hl,(#_blk_context+1)     ;hl = blk_context.drive_ptr
+    ld a,h                      ;if (blk_context.drive_ptr == NULL)
+    or a,l
+    ret nz                      ;    return hl
+    ld a,#_err_null_deref       ;return err_null_deref
+_blk_fn_return_parent:
+    pop hl                      ;pop this functions's return addreess
+_blk_fn_return:
+    pop de                      ;pop protected block_set_* registers
+    pop hl
     ret
 
+;CY=1 and return to caller on success
+;ACC = err_range, and return from parent on failure
+_blk_check_range:
+    ld e,(hl)                   ;e = max
+    ld a,d                      ;a = input
+    cp a,e                      ;if (input < max)
+    ret c                       ;    return CY=1;
+    ld a,#_err_range            ;return err_range
+    jp  _blk_fn_return_parent
+
+;uint8_t blk_set_platter (uint8_t platter)
 _blk_set_platter:
-    ret
+    push hl
+    push de
+    ld e,a                      ;e = platter
+    call _blk_deref_drive_ptr   ;hl = blk_context.drive_ptr or return err
+    inc hl                      ;hl = &hl->max_platters
+    call _blk_check_range       ;on failure, return err
+    ld hl,#_blk_context+3       ;blk_context.platter = platter
+    ld (hl),e
+    xor a,a                     ;return 0
+    jp _blk_fn_return
 
+;uint8_t blk_set_cylinder (uint8_t cylinder)
 _blk_set_cylinder:
-    ret
+    push hl
+    push de
+    ld e,a                      ;e = cylinder
+    call _blk_deref_drive_ptr   ;hl = blk_context.drive_ptr or return err
+    inc hl                      ;hl = &hl->max_cylinders
+    inc hl
+    call _blk_check_range       ;on failure, return err
+    ld hl,#_blk_context+4       ;blk_context.cyclinder = cylinder
+    ld (hl),e
+    xor a,a                     ;return 0
+    jp _blk_fn_return
 
+;uint8_t blk_set_sector (uint8_t sector)
 _blk_set_sector:
-    ret
+    push hl
+    push de
+    ld e,a                      ;e = sector
+    call _blk_deref_drive_ptr   ;hl = blk_context.drive_ptr or return err
+    inc hl                      ;hl = &hl->max_sectors
+    inc hl
+    inc hl
+    call _blk_check_range       ;on failure, return err
+    ld hl,#_blk_context+5       ;blk_context.sector = sector
+    ld (hl),e
+    xor a,a                     ;return 0
+    jp _blk_fn_return
 
+;void blk_set_write_protect (void)
 _blk_set_write_protect:
+    ld hl,#_blk_context+6
+    ld a,(hl)
+    or a,#_blk_stat_write_protect
+    ld (hl),a
     ret
 
-_blk_get_write_portect:
+;void blk_unset_write_protect (void)
+_blk_unset_write_protect:
+    ld hl,#_blk_context+6
+    ld a,(hl)
+    and a,#~_blk_stat_write_protect
+    ld (hl),a
+    ret
+
+;uint8_t blk_get_write_protect (void)
+_blk_get_write_protect:
+    ld a,(#_blk_context+6)
+    and a,#_blk_stat_write_protect
     ret
 
 _blk_read:

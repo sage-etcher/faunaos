@@ -36,11 +36,54 @@ xtoc (uint8_t x)
 }
 
 void
+putbyte (uint8_t byte)
+{
+    vid_write_c (xtoc (byte >>  4));
+    vid_write_c (xtoc (byte >>  0));
+    vid_write_c (' ');
+}
+
+void
 main (void)
 {
     /* clear screen */
     vid_write_c (PVID_HOME_CURSOR);
     vid_write_c (PVID_CLEAR_TO_EO_SCREEN);
+
+    /* setup drives */
+    blk_reset ();                       /* unset drive */
+    putbyte (blk_set_platter  (0));     /* 01 01 */
+    putbyte (blk_set_cylinder (0));     /* 01 01 */
+    putbyte (blk_set_sector   (4));     /* 01 00 */
+    vid_write_c (PVID_NEWLINE);
+
+    blk_reset ();                       /* valid, minimum values */
+    putbyte (blk_set_drive    (0));     /* 00 00 */
+    putbyte (blk_set_platter  (0));     /* 00 02 */
+    putbyte (blk_set_cylinder (0));     /* 00 00 */
+    putbyte (blk_set_sector   (0));     /* 00 02 */
+    vid_write_c (PVID_NEWLINE);
+
+    blk_reset ();                       /* valid, maximum values */
+    putbyte (blk_set_drive    (1));     /* 00 00 */
+    putbyte (blk_set_platter  (1));     /* 00 00 */
+    putbyte (blk_set_cylinder (34));    /* 00 02 */
+    putbyte (blk_set_sector   (9));     /* 00 02 */
+    vid_write_c (PVID_NEWLINE);
+
+    blk_reset ();                       /* drive out of range */
+    putbyte (blk_set_drive    (2));     /* 02 02 */
+    putbyte (blk_set_platter  (1));     /* 01 00 */
+    putbyte (blk_set_cylinder (34));    /* 01 02 */
+    putbyte (blk_set_sector   (9));     /* 01 02 */
+    vid_write_c (PVID_NEWLINE);
+
+    blk_reset ();                       /* valid drive, invalid everything */
+    putbyte (blk_set_drive    (1));     /* 00 00 */
+    putbyte (blk_set_platter  (2));     /* 02 00 */
+    putbyte (blk_set_cylinder (35));    /* 02 00 */
+    putbyte (blk_set_sector   (10));    /* 02 00 */
+    vid_write_c (PVID_NEWLINE);
 
     /* hellorld */
     puts ("Hellorld!");
@@ -123,6 +166,7 @@ main (void)
 
     /* exit */
     puts ("done");
+exit:
     while (1)
     {
         cpu_halt ();

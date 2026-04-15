@@ -37,12 +37,13 @@ enum {
     BLKERR_HARDWARE_ERROR,
 };
 
-uint8_t blk_reset (void);
+void blk_reset (void);
 uint8_t blk_set_drive (uint8_t drive);
 uint8_t blk_set_platter (uint8_t platter);      /* floppy: side */
 uint8_t blk_set_cylinder (uint8_t cylinder);    /* floppy: track */
 uint8_t blk_set_sector (uint8_t sector);
-uint8_t blk_set_write_protect (uint8_t status);
+void blk_set_write_protect (void);
+void blk_unset_write_protect (void);
 uint8_t blk_get_write_protect (void);
 uint8_t blk_read (uint8_t *buf, uint8_t sec_cnt);
 uint8_t blk_write (uint8_t *buf, uint8_t sec_cnt);
