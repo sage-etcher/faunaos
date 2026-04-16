@@ -38,10 +38,10 @@ enum {
 };
 
 void blk_reset (void);
-uint8_t blk_set_drive (uint8_t drive);
-uint8_t blk_set_platter (uint8_t platter);      /* floppy: side */
+uint8_t blk_set_drive    (uint8_t drive);
+uint8_t blk_set_platter  (uint8_t platter);     /* floppy: side */
 uint8_t blk_set_cylinder (uint8_t cylinder);    /* floppy: track */
-uint8_t blk_set_sector (uint8_t sector);
+uint8_t blk_set_sector   (uint8_t sector);
 void blk_set_write_protect (void);
 void blk_unset_write_protect (void);
 uint8_t blk_get_write_protect (void);
