@@ -385,8 +385,6 @@ _blk_set_drive_valid:           ;}
     ld (#_blk_context+0),a      ;blk_context.drive_index = drive_index
     ld l,#_sizeof_blk_device    ;hl = &blk_devices[drive_index]
     call _a_mult_l
-    ld h,#0
-    ld l,a
     ld de,#_blk_devices
     add hl,de
     ex de,hl                    ;de = hl
