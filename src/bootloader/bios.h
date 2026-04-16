@@ -45,8 +45,8 @@ uint8_t blk_set_sector   (uint8_t sector);
 void blk_set_write_protect (void);
 void blk_unset_write_protect (void);
 uint8_t blk_get_write_protect (void);
-uint8_t blk_read (uint8_t *buf, uint8_t sec_cnt);
-uint8_t blk_write (uint8_t *buf, uint8_t sec_cnt);
+uint8_t blk_read  (uint8_t sec_cnt, uint8_t *buf);
+uint8_t blk_write (uint8_t sec_cnt, uint8_t *buf);
 
 #endif
 /* end of file */
