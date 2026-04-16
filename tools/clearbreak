@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+for _ in $(seq 0 $(nsaectl info breakpoint |tail -n1 |awk -F: '{print $1}'))
+do
+    nsaectl delete breakpoint 0
+done
+

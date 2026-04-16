@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+nsaectl pause
+nsaectl load mmu 0xc000 $1
+nsaectl set cpu pc 0xc010
+nsaectl run
