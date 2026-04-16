@@ -319,15 +319,15 @@ _sizeof_blk_device  = 6
 _blk_device_cnt = 2
 _blk_devices:
     .db _blk_type_floppy    ;type floppy
-    .db 2                   ;max platters
-    .db 35                  ;max cylinder
-    .db 10                  ;max sector
+    .db 1                   ;max platters
+    .db 34                  ;max cylinder
+    .db 9                   ;max sector
     .dw 0x01                ;args: (hw disk select)
 
     .db _blk_type_floppy    ;type floppy
-    .db 2                   ;max platters
-    .db 35                  ;max cylinder
-    .db 10                  ;max sector
+    .db 1                   ;max platters
+    .db 34                  ;max cylinder
+    .db 9                   ;max sector
     .dw 0x02                ;args: (hw disk select)
 
 _err_ok         = 0x00
@@ -414,11 +414,10 @@ _blk_fn_return:
 
 ;CY=1 and return to caller on success
 ;ACC = err_range, and return from parent on failure
-_blk_check_range:
-    ld e,(hl)                   ;e = max
-    ld a,d                      ;a = input
-    cp a,e                      ;if (input < max)
-    ret c                       ;    return CY=1;
+_blk_check_range:               ;e = input
+    ld a,(hl)                   ;a = max
+    cp a,e                      ;if (max >= request)
+    ret nc                      ;    return CY=1
     ld a,#_err_range            ;return err_range
     jp  _blk_fn_return_parent
 
