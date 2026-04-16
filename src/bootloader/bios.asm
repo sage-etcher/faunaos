@@ -81,18 +81,18 @@ _a_mult_10:
 _a_mult_l:
     push bc
     push de
-    ld d,#0
+    ld d,#0                 ;de = (uint16_t)param_l
     ld e,l
-    ld h,a
+    ld h,a                  ;hl = (uint16_t)param_a
     ld l,d
-    ld c,#8
+    ld c,#8                 ;c = 8
 _a_mult_l_loop:
-    add hl,hl
-    jp nc,_a_mult_l_noadd
-    add hl,de
+    add hl,hl               ;hl = hl + hl
+    jp nc,_a_mult_l_noadd   ;if addition overflows, add de
+    add hl,de               ;hl = hl + de
 _a_mult_l_noadd:
-    dec c
-    jp nz,_a_mult_l_loop
+    dec c                   ;bit loop decriment
+    jp nz,_a_mult_l_loop    ;loop until c == 0
     pop de
     pop bc
     ret
