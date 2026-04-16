@@ -54,35 +54,35 @@ main (void)
     blk_reset ();                       /* unset drive */
     putbyte (blk_set_platter  (0));     /* 01 01 */
     putbyte (blk_set_cylinder (0));     /* 01 01 */
-    putbyte (blk_set_sector   (4));     /* 01 00 */
+    putbyte (blk_set_sector   (4));     /* 01 01 */
     vid_write_c (PVID_NEWLINE);
 
     blk_reset ();                       /* valid, minimum values */
     putbyte (blk_set_drive    (0));     /* 00 00 */
-    putbyte (blk_set_platter  (0));     /* 00 02 */
+    putbyte (blk_set_platter  (0));     /* 00 00 */
     putbyte (blk_set_cylinder (0));     /* 00 00 */
-    putbyte (blk_set_sector   (0));     /* 00 02 */
+    putbyte (blk_set_sector   (0));     /* 00 00 */
     vid_write_c (PVID_NEWLINE);
 
     blk_reset ();                       /* valid, maximum values */
     putbyte (blk_set_drive    (1));     /* 00 00 */
     putbyte (blk_set_platter  (1));     /* 00 00 */
-    putbyte (blk_set_cylinder (34));    /* 00 02 */
-    putbyte (blk_set_sector   (9));     /* 00 02 */
+    putbyte (blk_set_cylinder (34));    /* 00 00 */
+    putbyte (blk_set_sector   (9));     /* 00 00 */
     vid_write_c (PVID_NEWLINE);
 
     blk_reset ();                       /* drive out of range */
     putbyte (blk_set_drive    (2));     /* 02 02 */
-    putbyte (blk_set_platter  (1));     /* 01 00 */
-    putbyte (blk_set_cylinder (34));    /* 01 02 */
-    putbyte (blk_set_sector   (9));     /* 01 02 */
+    putbyte (blk_set_platter  (1));     /* 01 01 */
+    putbyte (blk_set_cylinder (34));    /* 01 01 */
+    putbyte (blk_set_sector   (9));     /* 01 01 */
     vid_write_c (PVID_NEWLINE);
 
     blk_reset ();                       /* valid drive, invalid everything */
     putbyte (blk_set_drive    (1));     /* 00 00 */
-    putbyte (blk_set_platter  (2));     /* 02 00 */
-    putbyte (blk_set_cylinder (35));    /* 02 00 */
-    putbyte (blk_set_sector   (10));    /* 02 00 */
+    putbyte (blk_set_platter  (2));     /* 02 02 */
+    putbyte (blk_set_cylinder (35));    /* 02 02 */
+    putbyte (blk_set_sector   (10));    /* 02 02 */
     vid_write_c (PVID_NEWLINE);
 
     /* hellorld */
