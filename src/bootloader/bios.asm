@@ -21,9 +21,42 @@
     .globl _blk_read
     .globl _blk_write
 
+    .globl _floppy_await_secmark0
+    .globl _floppy_await_secmark1
+    .globl _floppy_home
+    .globl _floppy_step
+    .globl _floppy_await_sector
+    .globl _floppy_position
+    .globl _prom_video_context
+    .globl _send_io_ctrl
+    .globl _a_mult_10
+    .globl _a_mult_l
+    .globl _a_divmod_l
+    .globl _a_div
+    .globl _a_mod
+    .globl _memset
+    .globl _cursor_shape_block
+    .globl _cursor_shape_hollow
+    .globl _cursor_shape_line
+    .globl _cursor_shape_bar
+    .globl _kb_enable_mi
+    .globl _blk_context
+    .globl _blk_devices
+    .globl _blk_deref_drive_ptr
+    .globl _blk_fn_return_parent
+    .globl _blk_fn_return
+    .globl _blk_check_range
+    .globl _floppy_ctrl
+
+
 _adv_io_ctrl  = 0xf0
 _adv_io_stat1 = 0xe0
 _adv_io_stat2 = 0xd0
+
+_adv_drv_data     = 0x80
+_adv_drv_sync1    = 0x81
+_adv_drv_ctrl     = 0x81
+_adv_drv_set_read = 0x82
 
     .area _DATA
     .area _INITIALIZED
@@ -263,7 +296,7 @@ _vid_write_c:
     ret
 
 _kb_enable_mi:
-    ld a,#0x9b              ;enable display int | io reset | toggle keyboard mi
+    ld a,#0x10|0x08|0x03    ;toggle keyboard mi
     call _send_io_ctrl
     in a,(#_adv_io_stat2)   ;check result of toggle
     and a,#0x01
@@ -280,12 +313,12 @@ _kb_get_keycode:
     call _kb_get_status     ;get status
     jp z,_kb_get_keycode    ;loop until keypress is available
     push bc
-    ld a,#0x99              ;get low nibble from character
+    ld a,#0x10|0x08|0x01    ;get low nibble from character
     call _send_io_ctrl
     in a,(#_adv_io_stat2)
     and a,#0x0f
     ld b,a                  ;store unfinished character in c
-    ld a,#0x9a              ;get high nibble from character
+    ld a,#0x10|0x08|0x02    ;get high nibble from character
     call _send_io_ctrl
     in a,(#_adv_io_stat2)
     and a,#0x0f
@@ -333,6 +366,10 @@ _blk_devices:
 _err_ok         = 0x00
 _err_null_deref = 0x01
 _err_range      = 0x02
+_err_maxretry   = 0x03
+_err_bad_sync1  = 0x04
+_err_bad_sync2  = 0x05
+_err_bad_crc    = 0x06
 
 ;void memset (void *buf, uint8_t byte, size_t n);
 _memset:
@@ -483,10 +520,274 @@ _blk_get_write_protect:
     and a,#_blk_stat_write_protect
     ret
 
+_floppy_ctrl:   .ds     1
+
+_floppy_await_secmark0:
+    in a,(_adv_io_stat1)            ;get io status
+    and a,#0x40                     ;isolate secmark
+    jp nz,_floppy_await_secmark0    ;loop until secmark == 0
+    ret
+
+_floppy_await_secmark1:
+    in a,(_adv_io_stat1)            ;get io status
+    and a,#0x40                     ;isolate secmark
+    jp z,_floppy_await_secmark0     ;loop until secmark == 1
+    ret
+
+_floppy_step_pulse   = #0x10
+_floppy_stepdir_out  = #0x00
+_floppy_stepdir_in   = #0x20
+_floppy_stepdir_mask = #0x20
+;uint8_t floppy_step (uint8_t count, uint8_t direction)
+_floppy_step:
+    push hl
+    push de
+    ld d,a                          ;d = count
+    ld e,l                          ;e = direction
+    ld hl,#_floppy_ctrl             ;hl = &floppy_ctrl
+    ld a,(hl)                       ;a = floppy_ctrl &= ~STEPDIR_MASK
+    and a,#~_floppy_stepdir_mask    ;apply step direction
+    or a,e
+    and a,#~_floppy_step_pulse      ;clear step pulse
+    ld e,#_floppy_step_pulse        ;e = floppy_step_pulse
+_floppy_step_loop:
+    out (_adv_drv_ctrl),a           ;step pulse 0
+    xor a,e                         ;step pulse 1
+    out (_adv_drv_ctrl),a
+    xor a,e                         ;step pulse 0
+    out (_adv_drv_ctrl),a
+    push af                         ;wait atleast 5ms
+    call _floppy_await_secmark1     ;if in secmark, wait till leave 0-5ms
+    call _floppy_await_secmark0     ;hold until next secmark        0-15ms
+    call _floppy_await_secmark1     ;hold until secmark finished    5ms
+    pop af
+    dec d                           ;count--
+    jp nz,_floppy_step_loop         ;loop until count == 0
+    pop de
+    pop hl
+    ret
+
+;A = 0 on success,
+;A = err_maxretry on failure
+;uint8_t floppy_home (void)
+_floppy_home:
+    push hl
+    ld h,#0xff                  ;h = maxretry
+_floppy_home_loop:              ;do {
+    dec h                       ;    h--
+    jp z,_floppy_home_error     ;    if (h == 0) goto _floppy_home_error
+    ld a,#1                     ;    floppy_step (0, STEPDIR_OUT)
+    ld l,#_floppy_stepdir_out
+    call _floppy_step
+    in a,(#_adv_io_stat1)       ;} while (~adv_io_stat1 & TRACKZERO)
+    and a,#0x20
+    jp z,_floppy_home_loop
+    pop hl
+    xor a,a
+    ret                         ;return 0x00
+_floppy_home_error:
+    ld a,#_err_maxretry         ;return _err_maxretry
+    pop hl
+    ret
+
+;uint8_t floppy_await_sector(uint8_t sector)
+_floppy_await_sector:
+    push de
+    ld e,a                          ;e = watch_sector
+    dec e
+_floppy_await_sector_loop:
+    call _floppy_await_secmark0     ;wait until sector mark is met
+    in a,(_adv_io_stat2)            ;read sector number
+    and a,#0x0f
+    cp a,e                          ;if (read_sector_num == watch_sector)
+    jp z,_floppy_await_sector_found ;   goto floppy_await_sector_found
+    call _floppy_await_secmark1     ;wait until sector mark passes before jump
+    jp _floppy_await_sector_loop    ;loop
+_floppy_await_sector_found:
+    pop de
+    ret
+
+_floppy_position:
+    push hl
+    push de
+
+    ;clear floppy_ctrl
+    xor a,a                     ;floppy_ctrl = 0
+    ld (#_floppy_ctrl),a
+
+    ;floppy_ctrl |= drive select
+    call _blk_deref_drive_ptr   ;hl = blk_context.drive_ptr or return err
+    ld de,#4                    ;hl = &blk_context.drive_ptr->args
+    add hl,de
+    ld a,(hl)                   ;a = hw disk select
+    and a,#0x03                 ;a &= 0b0000_0011 isolate drive select
+    ld e,a                      ;e = temp floppy_ctrl
+
+    ;floppy_ctrl |= side select
+    ld hl,#_blk_context+3       ;hl = &_blk_context.platter
+    ld a,(hl)                   ;a = platter (either 0 or 1)
+    rrca                        ;a right_rotate 2
+    rrca
+    and a,#0x40                 ;a &= 0b0100_0000 isolate platter/side select
+    or a,e                      ;temp floppy_ctrl |= a
+    ld e,a
+
+    ;set floppy_ctrl
+    ld a,e                      ;floppy_ctrl = temp floppy_ctrl
+    ld (#_floppy_ctrl),a
+
+    ;start motor
+    ld a,#0x10|0x08|0x05        ;a = start_motor
+    call _send_io_ctrl
+
+    ;home track
+    call _floppy_home
+
+    ;move to track
+    inc hl                      ;de = &_blk_context.cylinder
+    ex de,hl
+    ld a,(de)                   ;a = cylinder
+    ld l,#_floppy_stepdir_in    ;l = DCTRL_STEPDIR_IN
+    call _floppy_step           ;step the floppy
+    ex de,hl
+
+    ;await sector
+    inc hl                      ;hl = &_blk_context.sector
+    ld a,(hl)                   ;e = sector
+    call _floppy_await_sector   ;wait until we are at sector 
+
+    pop de
+    pop hl
+    ret
+
+;void blk_increment(void)
+_blk_increment:
+    push bc
+    push de
+    push hl
+    call _blk_deref_drive_ptr       ;hl = blk_context.drive_ptr or return err
+    inc hl                          ;hl = &max_sector
+    inc hl
+    inc hl
+    ld de,#_blk_context+5           ;de = &blk_context->sector
+    call _blk_increment_stage       ;increment sector
+    or a,a
+    jp z,_blk_increment_exit
+    dec de                          ;increment cylinder
+    dec hl
+    call _blk_increment_stage
+    or a,a
+    jp z,_blk_increment_exit
+    dec de                          ;increment platter
+    dec hl
+    call _blk_increment_stage
+_blk_increment_exit:
+    pop hl
+    pop de
+    pop bc
+    ret
+_blk_increment_stage:
+    ld a,(de)                       ;a = sector
+    inc a                           ;a = next sector
+    ld b,(hl)                       ;b = max_sector
+    cp a,b                          ;if sector >= max_sector
+    jp nc,_blk_increment_overflow   ;    goto blk_increment_overflow
+    ld (de),a                       ;blk_context->sector = next sector
+    ld a,#0                         ;return 0
+    ret
+_blk_increment_overflow:
+    sub a,b                         ;next sector -= max_sector
+    ld (de),a                       ;blk_context->sector = next sector
+    ld a,#1                         ;return 1
+    ret
+
+;uint8_t floppy_sync2_calc(void)
+_floppy_sync2_calc:
+    push hl
+    ld hl,#_blk_context+5           ;hl = &sector
+    ld a,(hl)                       ;a = sector
+    add a,#16                       ;a = a + 16
+    dec hl                          ;hl = &track
+    ld l,(hl)                       ;l = track
+    call _a_mult_l                  ;hl = a * track
+    ld a,l                          ;a = (uin8_t)hl
+    pop hl
+    ret
+
+;uint8_t floppy_read(uint8_t sec_cnt, uint8_t *buf);
+_floppy_read:
+    push bc
+    push de
+    ld c,a                          ;c = sec_cnt
+    call _floppy_position           ;align floppy drive to requested address
+_floppy_read_sector_loop:
+    call _floppy_await_secmark1     ;step 1 wait for sectormark to pass
+    in a,(#_adv_io_stat1) ;1ms
+    xor a,a                         ;step 2 set disk read
+    out (#_adv_drv_set_read),a
+    ld a,#0x10|0x05                 ;step 3 enter aquire mode
+    call _send_io_ctrl
+    ;in a,(#_adv_io_stat1) ;1ms     ;step 4 exit aquire mode
+    ld a,#0x10|#0x08|0x05
+    call _send_io_ctrl
+_floppy_await_disk_data:            ;step 5 wait for disk data
+    in a,(#_adv_io_stat1)
+    and a,#0x80
+    jp z,_floppy_await_disk_data
+    in a,(#_adv_drv_sync1)          ;step 6 input sync1
+    cp a,#0xfb                      ;if read_sync1 == 0xfb
+    jp z,_floppy_read_valid_sync1   ;    goto floppy_valid_sync1
+    ld a,#_err_bad_sync1            ;return err_bad_sync1
+    jp _floppy_read_exit
+_floppy_read_valid_sync1:           ;step 7.1 input sync2
+    call _floppy_sync2_calc         ;b = floppy_sync2_calc(buf)
+    ld b,a
+    in a,(#_adv_drv_data)           ;a = read_sync2
+    cp a,b                          ;if read_sync2 == calc_sync2
+    jp z,_floppy_read_valid_sync2   ;    goto floppy_valid_sync2
+    ld a,#_err_bad_sync2            ;return err_bad_crc
+    jp _floppy_read_exit
+_floppy_read_valid_sync2:           ;step 7.2 input 512 bytes of data
+    ld b,#0                         ;b = crc = 0
+    ld de,#512                      ;counter = 512
+_floppy_read_data_loop:             ;do {
+    in a,(#_adv_drv_data)           ;    a = read_data_byte
+    ld (hl),a                       ;    *buf = a
+    xor a,b                         ;b = crc calc
+    rlca
+    ld b,a
+    inc hl                          ;    buf++
+    dec de                          ;    counter--
+    ld a,d
+    or a,e
+    jp nz,_floppy_read_data_loop    ;} while (counter != 0)
+    in a,(#_adv_drv_data)           ;step 7.3 input crc byte
+    cp a,b                          ;if read_crc == calc_crc
+    jp z,_floppy_read_valid_crc     ;    goto _floppy_valid_crc
+    ld a,#_err_bad_crc              ;return err_bad_crc
+    jp _floppy_read_exit
+_floppy_read_valid_crc:
+    xor a,a                         ;acc = 0
+    dec c                           ;step 8 after read next sector or exit
+    jp z,_floppy_read_exit          ;if sec_cnt == 0: return acc
+    call _floppy_await_secmark0     ;wait for next sector mark
+    call _blk_increment             ;increment context to next sector
+    jp _floppy_read_sector_loop     ;read next sector
+_floppy_read_exit:
+    ld b,a                          ;protect retcode
+    ld a,#0x10|0x08                 ;unset motor enable
+    call _send_io_ctrl
+    ld a,b                          ;restore retcode
+    pop de
+    pop bc
+    ret
+
 _blk_read:
+    call _floppy_read
     ret
 
 _blk_write:
+    call _floppy_position
     ret
 
     .area _CODE
