@@ -69,6 +69,7 @@ main (void)
     putbyte (blk_set_platter  (1));     /* 00 00 */
     putbyte (blk_set_cylinder (34));    /* 00 00 */
     putbyte (blk_set_sector   (9));     /* 00 00 */
+    blk_read (0, (uint8_t *)0xd000);
     vid_write_c (PVID_NEWLINE);
 
     blk_reset ();                       /* drive out of range */
