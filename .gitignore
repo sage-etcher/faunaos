@@ -13,3 +13,5 @@ disks/
 logs/
 tools/ddtz/
 disk_a.nsi
+.tmp.**
+**_dis.asm
