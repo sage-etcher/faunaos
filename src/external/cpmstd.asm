@@ -117,6 +117,7 @@ _bdos_c_stat:
 _bdos_s_ver:
     ld c,#12
     call #0x0005
+    ex de,hl
 	ret
 
 _bdos_drv_allreset:
@@ -187,6 +188,7 @@ _bdos_f_rename:
 _bdos_drv_loginvec:
 	ld c,#24
 	call #0x0005
+    ex de,hl
 	ret
 
 _bdos_drv_get:
@@ -203,6 +205,7 @@ _bdos_f_dmaoff:
 _bdos_drv_allocvec:
 	ld c,#27
 	call #0x0005
+    ex de,hl
 	ret
 
 _bdos_drv_setro:
@@ -213,6 +216,7 @@ _bdos_drv_setro:
 _bdos_drv_rovec:
 	ld c,#29
 	call #0x0005
+    ex de,hl
 	ret
 
 _bdos_f_attrib:
@@ -224,6 +228,7 @@ _bdos_f_attrib:
 _bdos_drv_dpb:
 	ld c,#31
 	call #0x0005
+    ex de,hl
 	ret
 
 _bdos_f_usernum:

@@ -113,7 +113,7 @@ _a_mult_10:
 ;static uint16_t a_mult_l (uint8_t a, uint8_t l);
 _a_mult_l:
     push bc
-    push de
+    push hl
     ld d,#0                 ;de = (uint16_t)param_l
     ld e,l
     ld h,a                  ;hl = (uint16_t)param_a
@@ -126,18 +126,20 @@ _a_mult_l_loop:
 _a_mult_l_noadd:
     dec c                   ;bit loop decriment
     jp nz,_a_mult_l_loop    ;loop until c == 0
-    pop de
+    ex de,hl
+    pop hl
     pop bc
     ret
 
 ;typedef union {
-;    uint16_t hl_ret;
-;    struct { uint8_t h_quotient, l_remainder; };
+;    uint16_t de_ret;
+;    struct { uint8_t d_quotient, e_remainder; };
 ;} divmod8_t;
 
 ;divmod8_t a_divmod_l (uint8_t divident, uint8_t divisor);
 _a_divmod_l:
     push bc
+    push hl
     ld h,a                  ;H divident
     ld c,#9                 ;counter = 9
     xor a,a                 ;remainder = 0
@@ -157,25 +159,26 @@ _a_divmod_l_loop:
 _a_divmod_l_exit:
     ld a,h                  ;~divident
     cpl
-    ld h,a                  ;h = quotient
-    ld l,b                  ;l = remainder
+    ld d,a                  ;d = quotient
+    ld e,b                  ;e = remainder
+    pop hl
     pop bc
     ret
 
 ;uint8_t a_div (uint8_t divident, uint8_t divisor);
 _a_div:
-    push hl
+    push de
     call _a_divmod_l    ;a_divmod_l (divident, divisor)
-    ld a,h              ;a = quotient
-    pop hl
+    ld a,d              ;a = quotient
+    pop de
     ret
 
 ;uint8_t a_mod (uint8_t divident, uint8_t divisor);
 _a_mod:
-    push hl
+    push de
     call _a_divmod_l    ;a_divmod_l (divident, divisor)
-    ld a,l              ;a = remainder 
-    pop hl
+    ld a,e              ;a = remainder 
+    pop de
     ret
 
 ;void vid_set_cursor_shape (uint8_t shape);
@@ -228,17 +231,25 @@ _vid_set_cursor_position:
     pop de
     ret
 
+;uint16_t vid_get_cursor_position (void);
 _vid_get_cursor_position:
-    push de
-    ld de,#_prom_video_context+1    ;de = &prom_video_context.y
-    ld a,(de)                       ;y_pox(h) = prom_video_context.y / 10
+    push bc
+    push hl
+    ld hl,#_prom_video_context+4    ;hl = &prom_video_context.scrct
+    ld a,(hl)                       ;a = scrct
+    dec hl                          ;hl = &prom_video_context.raw_y
+    dec hl
+    dec hl
+    ld b,(hl)                       ;b = raw_y
+    dec hl                          ;hl = &prom_video_context.raw_x
+    ld c,(hl)                       ;c = raw_x
+    add a,b                         ;a = (raw_y + scrct) / 10
     ld l,#10
     call _a_div
-    ld h,a
-    dec de                          ;de = &prom_video_context.x
-    ld a,(de)                       ;x_pos(l) = prom_video_context.x
-    ld l,a
-    pop de
+    ld d,a                          ;ret_y(d) = a;
+    ld e,c                          ;ret_x(e) = c;
+    pop hl
+    pop bc
     ret
 
 ;void vid_write_c (uint8_t character, uint8_t count);
@@ -422,7 +433,7 @@ _blk_set_drive_valid:           ;}
     ld (#_blk_context+0),a      ;blk_context.drive_index = drive_index
     ld l,#_sizeof_blk_device    ;hl = &blk_devices[drive_index]
     call _a_mult_l
-    ld de,#_blk_devices
+    ld hl,#_blk_devices
     add hl,de
     ex de,hl                    ;de = hl
     ld hl,#_blk_context+1       ;blk_context.drive_ptr = de
@@ -432,12 +443,15 @@ _blk_set_drive_valid:           ;}
     xor a,a                     ;return 0
     jp _blk_fn_return
 
-;hl = blk_context.drive_ptr on success
+;de = blk_context.drive_ptr on success
 ;a = err_null_deref and return from parent on failure
 _blk_deref_drive_ptr:
+    push hl
     ld hl,(#_blk_context+1)     ;hl = blk_context.drive_ptr
     ld a,h                      ;if (blk_context.drive_ptr == NULL)
     or a,l
+    ex de,hl
+    pop hl
     ret nz                      ;    return hl
     ld a,#_err_null_deref       ;return err_null_deref
 _blk_fn_return_parent:
@@ -460,9 +474,10 @@ _blk_check_range:               ;e = input
 _blk_set_platter:
     push hl
     push de
-    ld e,a                      ;e = platter
-    call _blk_deref_drive_ptr   ;hl = blk_context.drive_ptr or return err
-    inc hl                      ;hl = &hl->max_platters
+    ld l,a                      ;e = platter
+    call _blk_deref_drive_ptr   ;de = blk_context.drive_ptr or return err
+    inc de                      ;hl = &hl->max_platters
+    ex de,hl
     call _blk_check_range       ;on failure, return err
     ld hl,#_blk_context+3       ;blk_context.platter = platter
     ld (hl),e
@@ -473,10 +488,11 @@ _blk_set_platter:
 _blk_set_cylinder:
     push hl
     push de
-    ld e,a                      ;e = cylinder
-    call _blk_deref_drive_ptr   ;hl = blk_context.drive_ptr or return err
-    inc hl                      ;hl = &hl->max_cylinders
-    inc hl
+    ld l,a                      ;e = cylinder
+    call _blk_deref_drive_ptr   ;de = blk_context.drive_ptr or return err
+    inc de                      ;hl = &hl->max_cylinders
+    inc de
+    ex de,hl
     call _blk_check_range       ;on failure, return err
     ld hl,#_blk_context+4       ;blk_context.cyclinder = cylinder
     ld (hl),e
@@ -487,11 +503,12 @@ _blk_set_cylinder:
 _blk_set_sector:
     push hl
     push de
-    ld e,a                      ;e = sector
-    call _blk_deref_drive_ptr   ;hl = blk_context.drive_ptr or return err
-    inc hl                      ;hl = &hl->max_sectors
-    inc hl
-    inc hl
+    ld l,a                      ;e = sector
+    call _blk_deref_drive_ptr   ;de = blk_context.drive_ptr or return err
+    inc de                      ;hl = &hl->max_sectors
+    inc de
+    inc de
+    ex de,hl
     call _blk_check_range       ;on failure, return err
     ld hl,#_blk_context+5       ;blk_context.sector = sector
     ld (hl),e
@@ -500,18 +517,22 @@ _blk_set_sector:
 
 ;void blk_set_write_protect (void)
 _blk_set_write_protect:
+    push hl
     ld hl,#_blk_context+6
     ld a,(hl)
     or a,#_blk_stat_write_protect
     ld (hl),a
+    pop hl
     ret
 
 ;void blk_unset_write_protect (void)
 _blk_unset_write_protect:
+    push hl
     ld hl,#_blk_context+6
     ld a,(hl)
     and a,#~_blk_stat_write_protect
     ld (hl),a
+    pop hl
     ret
 
 ;uint8_t blk_get_write_protect (void)
@@ -617,6 +638,7 @@ _floppy_position:
 
     ;floppy_ctrl |= drive select
     call _blk_deref_drive_ptr   ;hl = blk_context.drive_ptr or return err
+    ex de,hl
     ld de,#4                    ;hl = &blk_context.drive_ptr->args
     add hl,de
     ld a,(hl)                   ;a = hw disk select
@@ -666,6 +688,7 @@ _blk_increment:
     push de
     push hl
     call _blk_deref_drive_ptr       ;hl = blk_context.drive_ptr or return err
+    ex de,hl
     inc hl                          ;hl = &max_sector
     inc hl
     inc hl
@@ -703,6 +726,7 @@ _blk_increment_overflow:
 
 ;uint8_t floppy_sync2_calc(void)
 _floppy_sync2_calc:
+    push de
     push hl
     ld hl,#_blk_context+5           ;hl = &sector
     ld a,(hl)                       ;a = sector
@@ -710,8 +734,9 @@ _floppy_sync2_calc:
     dec hl                          ;hl = &track
     ld l,(hl)                       ;l = track
     call _a_mult_l                  ;hl = a * track
-    ld a,l                          ;a = (uin8_t)hl
+    ld a,e                          ;a = (uin8_t)hl
     pop hl
+    pop de
     ret
 
 ;uint8_t floppy_read(uint8_t sec_cnt, uint8_t *buf);
