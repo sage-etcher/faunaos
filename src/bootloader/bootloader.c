@@ -1,8 +1,66 @@
 
 #include "bios.h"
 
+#include "advantage.h"
 #include "advantage_prom.h"
 #include "z80std.h"
+
+uint8_t getchar (void);
+void puts_line (char *s);
+void puts (char *s);
+char xtoc (uint8_t x);
+void putbyte (uint8_t byte);
+void putword (uint16_t word);
+int readline (char *buf, uint16_t n);
+
+void
+main (void)
+{
+    /* clear screen */
+    adv_crt_scan = 0x00;
+    vid_write_c (PVID_HOME_CURSOR);
+    vid_write_c (PVID_CLEAR_TO_EO_SCREEN);
+
+    /* hellorld */
+    puts ("Hellorld!\r");
+
+    /* read from disk */
+    puts ("reading from disk...");
+    blk_reset ();
+    putbyte (blk_set_drive    (0));
+    putbyte (blk_set_platter  (0));
+    putbyte (blk_set_cylinder (0));
+    putbyte (blk_set_sector   (4));
+    //putbyte (blk_read (0, (uint8_t *)0xd000));
+    vid_write_c (PVID_LINE_FEED);
+    vid_write_c (PVID_CARRIAGE_RETURN);
+
+    putword (vid_get_cursor_position ()); /* base hellorld line */
+    vid_write_c_raw ('.', 20);
+    puts_line ("Hello world!");
+    putword (vid_get_cursor_position ()); /* post hellorld */
+
+    uint16_t pos1 = vid_get_cursor_position (); /* pos 1 */
+    vid_set_cursor_position (pos1);
+    uint16_t pos2 = vid_get_cursor_position (); /* pos 2 */
+    vid_set_cursor_position (VID_POS_SET_XY (0,10));
+    putword (pos1);
+    putword (pos2);
+
+
+    /* prompt for input */
+    vid_write_c ('#');
+    putbyte (readline (NULL, 15));
+    vid_write_c (PVID_LINE_FEED);
+    vid_write_c (PVID_CARRIAGE_RETURN);
+
+    /* exit */
+    puts ("exiting");
+    while (1)
+    {
+        cpu_halt ();
+    }
+}
 
 uint8_t
 getchar (void)
@@ -14,14 +72,21 @@ getchar (void)
 }
 
 void
-puts (char *s)
+puts_line (char *s)
 {
     register char c;
     while ((c = *s++))
     {
         vid_write_c (c);
     }
-    vid_write_c (PVID_NEWLINE);
+}
+
+void
+puts (char *s)
+{
+    puts_line (s);
+    vid_write_c (PVID_LINE_FEED);
+    vid_write_c (PVID_CARRIAGE_RETURN);
 }
 
 char
@@ -44,133 +109,101 @@ putbyte (uint8_t byte)
 }
 
 void
-main (void)
+putword (uint16_t word)
 {
-    /* clear screen */
-    vid_write_c (PVID_HOME_CURSOR);
-    vid_write_c (PVID_CLEAR_TO_EO_SCREEN);
+    vid_write_c (xtoc (word >> 12));
+    vid_write_c (xtoc (word >>  8));
+    vid_write_c (xtoc (word >>  4));
+    vid_write_c (xtoc (word >>  0));
+    vid_write_c (' ');
+}
 
-    /* setup drives */
-    blk_reset ();                       /* unset drive */
-    putbyte (blk_set_platter  (0));     /* 01 01 */
-    putbyte (blk_set_cylinder (0));     /* 01 01 */
-    putbyte (blk_set_sector   (4));     /* 01 01 */
-    vid_write_c (PVID_NEWLINE);
+int
+readline (char *buf, uint16_t max)
+{
+    const char PLACEHOLDER = '.';
+    uint8_t c;
+    uint16_t len = 0;
+    uint16_t pos = 0;
 
-    blk_reset ();                       /* valid, minimum values */
-    putbyte (blk_set_drive    (0));     /* 00 00 */
-    putbyte (blk_set_platter  (0));     /* 00 00 */
-    putbyte (blk_set_cylinder (0));     /* 00 00 */
-    putbyte (blk_set_sector   (0));     /* 00 00 */
-    vid_write_c (PVID_NEWLINE);
+    uint16_t homepos;
+    uint16_t endpos;
 
-    blk_reset ();                       /* valid, maximum values */
-    putbyte (blk_set_drive    (1));     /* 00 00 */
-    putbyte (blk_set_platter  (1));     /* 00 00 */
-    putbyte (blk_set_cylinder (34));    /* 00 00 */
-    putbyte (blk_set_sector   (9));     /* 00 00 */
-    blk_read (0, (uint8_t *)0xd000);
-    vid_write_c (PVID_NEWLINE);
+    vid_write_c_raw (PLACEHOLDER, max);
 
-    blk_reset ();                       /* drive out of range */
-    putbyte (blk_set_drive    (2));     /* 02 02 */
-    putbyte (blk_set_platter  (1));     /* 01 01 */
-    putbyte (blk_set_cylinder (34));    /* 01 01 */
-    putbyte (blk_set_sector   (9));     /* 01 01 */
-    vid_write_c (PVID_NEWLINE);
+    homepos = vid_get_cursor_position ();
+    endpos = homepos;
 
-    blk_reset ();                       /* valid drive, invalid everything */
-    putbyte (blk_set_drive    (1));     /* 00 00 */
-    putbyte (blk_set_platter  (2));     /* 02 02 */
-    putbyte (blk_set_cylinder (35));    /* 02 02 */
-    putbyte (blk_set_sector   (10));    /* 02 02 */
-    vid_write_c (PVID_NEWLINE);
-
-    /* hellorld */
-    puts ("Hellorld!");
-
-    /* prompt for each cursor shape */
-    //vid_set_cursor_position (VID_POS_SET_XY (10, 10));
-    //vid_write_c_raw ('$', 10);
-    //vid_set_cursor_shape (VID_CURSOR_SHAPE_BLOCK);
-    //(void)getchar ();
-
-    //vid_set_cursor_shape (VID_CURSOR_SHAPE_HOLLOW);
-    //(void)getchar ();
-
-    //vid_set_cursor_shape (VID_CURSOR_SHAPE_LINE);
-    //(void)getchar ();
-
-    //vid_set_cursor_shape (VID_CURSOR_SHAPE_BAR);
-    //(void)getchar ();
-
-    /* prompt for control codes */
-    vid_set_cursor_position (VID_POS_SET_XY (10, 20));
-    vid_write_c ('>');
-
-    uint16_t pos = vid_get_cursor_position ();
-    vid_write_c (xtoc (pos >> 12)); /* n */
-    vid_write_c (xtoc (pos >>  8)); /* o */
-    vid_write_c (xtoc (pos >>  4)); /* 0 */
-    vid_write_c (xtoc (pos >>  0)); /* l */
-    register uint8_t c;
-
-    vid_set_cursor_position (pos);
-    vid_write_c ('#');
-
-    do {
+    for (;;)
+    {
+        /* get key */
         c = kb_get_keycode ();
 
+        /* handle control special keys */
         switch (c)
         {
-        case 'h': vid_set_cursor_position (pos); break;
+        /* ----------------------------------------------------------- */
+        case 0x0d: /* enter handler */
+            vid_write_c (PVID_LINE_FEED);
+            vid_write_c (PVID_CARRIAGE_RETURN);
+            return len;
 
-        /* return */
-        case 0x0d: vid_write_c (PVID_NEWLINE); break;
+        case 0x7f: /* backspace handler */
+            if (pos > 0) 
+            {
+                vid_write_c (PVID_CURSOR_LEFT);
+                pos--;
+            }
 
-        /* backspace */
-        case 0x7f: 
+            vid_write_c_raw (PLACEHOLDER, (len - pos));
+            endpos = vid_get_cursor_position ();
+            len = pos;
+            break;
+
+        /* ----------------------------------------------------------- */
+        case 0x88:  /*      left */
+            if (pos == 0) { continue; }
+
             vid_write_c (PVID_CURSOR_LEFT);
-            vid_write_c_raw (' ', 1);
-            break;
+            pos--;
+            continue;
 
-        /* numbers */
-        case 0x31: vid_set_cursor_shape (VID_CURSOR_SHAPE_BLOCK);  break;
-        case 0x32: vid_set_cursor_shape (VID_CURSOR_SHAPE_HOLLOW); break;
-        case 0x33: vid_set_cursor_shape (VID_CURSOR_SHAPE_LINE);   break;
-        case 0x34: vid_set_cursor_shape (VID_CURSOR_SHAPE_BAR);    break;
+        case 0x8a:  /* down */
+            vid_set_cursor_position (homepos);
+            pos = 0;
+            continue;
 
-        /* arrows */
-        case 0x84: vid_write_c (PVID_CURSOR_DOWN);  /* down+left */
-        case 0x88: vid_write_c (PVID_CURSOR_LEFT);  /*      left */
-            break;
+        case 0x82:  /* up */
+            vid_set_cursor_position (endpos);
+            pos = len;
+            continue;
 
-        case 0x83: vid_write_c (PVID_CURSOR_RIGHT);  /* down+right */
-        case 0x8a: vid_write_c (PVID_CURSOR_DOWN);   /* down */
-            break;
+        case 0x86:  /*    right */
+            if (pos == len) { continue; }
 
-        case 0x87: vid_write_c (PVID_CURSOR_LEFT);  /* up+left */
-        case 0x82: vid_write_c (PVID_CURSOR_UP);    /* up */
-            break;
+            vid_write_c (PVID_CURSOR_RIGHT);
+            pos++;
+            continue;
 
-        case 0x89: vid_write_c (PVID_CURSOR_UP);    /* up+right */
-        case 0x86: vid_write_c (PVID_CURSOR_RIGHT); /*    right */
-            break;
-
-        /* everything else */
+        /* ----------------------------------------------------------- */
         default:
+            /* echo characters only when it can be added to the buffer */
+            if (pos == max) { break; }
+
             vid_write_c (c);
+
+            pos++;
+            if (pos < len)
+            {
+                vid_write_c_raw (PLACEHOLDER, (len - pos));
+            }
+            endpos = vid_get_cursor_position ();
+            len = pos;
+
+            if (buf == NULL) { break; }
+            buf[pos] = c;
             break;
         }
-    } while (c != 'q');
-    vid_write_c (PVID_NEWLINE);
-
-    /* exit */
-    puts ("done");
-exit:
-    while (1)
-    {
-        cpu_halt ();
     }
 }
 
