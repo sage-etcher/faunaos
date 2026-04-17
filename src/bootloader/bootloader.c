@@ -17,45 +17,36 @@ void
 main (void)
 {
     /* clear screen */
-    adv_crt_scan = 0x00;
     vid_write_c (PVID_HOME_CURSOR);
     vid_write_c (PVID_CLEAR_TO_EO_SCREEN);
 
     /* hellorld */
-    puts ("Hellorld!\r");
+    puts ("hellorld!");
+    vid_write_c (PVID_CARRIAGE_RETURN);
+    // TODO: why does this puts() not send a carriage return?
 
     /* read from disk */
-    puts ("reading from disk...");
+    puts_line ("reading from disk: ");
     blk_reset ();
     putbyte (blk_set_drive    (0));
     putbyte (blk_set_platter  (0));
     putbyte (blk_set_cylinder (0));
     putbyte (blk_set_sector   (4));
-    //putbyte (blk_read (0, (uint8_t *)0xd000));
-    vid_write_c (PVID_LINE_FEED);
-    vid_write_c (PVID_CARRIAGE_RETURN);
-
-    putword (vid_get_cursor_position ()); /* base hellorld line */
-    vid_write_c_raw ('.', 20);
-    puts_line ("Hello world!");
-    putword (vid_get_cursor_position ()); /* post hellorld */
-
-    uint16_t pos1 = vid_get_cursor_position (); /* pos 1 */
-    vid_set_cursor_position (pos1);
-    uint16_t pos2 = vid_get_cursor_position (); /* pos 2 */
-    vid_set_cursor_position (VID_POS_SET_XY (0,10));
-    putword (pos1);
-    putword (pos2);
-
+    putbyte (blk_read (0, (uint8_t *)0xd000));
+    vid_write_c (PVID_NEWLINE);
 
     /* prompt for input */
-    vid_write_c ('#');
-    putbyte (readline (NULL, 15));
-    vid_write_c (PVID_LINE_FEED);
-    vid_write_c (PVID_CARRIAGE_RETURN);
+    puts_line ("\n\rtest prompt>");
+    uint8_t input_len = readline (NULL, 67);
+    puts_line ("input length: ");
+    putbyte (input_len);
+    vid_write_c (PVID_NEWLINE);
+
 
     /* exit */
-    puts ("exiting");
+    vid_set_cursor_position (VID_POS_SET_XY (0, 22));
+    puts ("halting");
+    vid_write_c (PVID_CURSOR_OFF);
     while (1)
     {
         cpu_halt ();
@@ -85,8 +76,7 @@ void
 puts (char *s)
 {
     puts_line (s);
-    vid_write_c (PVID_LINE_FEED);
-    vid_write_c (PVID_CARRIAGE_RETURN);
+    vid_write_c (PVID_NEWLINE);
 }
 
 char
