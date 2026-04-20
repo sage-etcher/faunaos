@@ -27,6 +27,13 @@
     .globl _floppy_step
     .globl _floppy_await_sector
     .globl _floppy_position
+    .globl _floppy_read
+    .globl _floppy_read_sector_loop
+    .globl _floppy_read_valid_sync1
+    .globl _floppy_read_valid_sync2
+    .globl _floppy_read_data_loop
+    .globl _floppy_read_valid_crc
+    .globl _floppy_read_exit
     .globl _prom_video_context
     .globl _send_io_ctrl
     .globl _a_mult_10
@@ -552,7 +559,7 @@ _floppy_await_secmark0:
 _floppy_await_secmark1:
     in a,(_adv_io_stat1)            ;get io status
     and a,#0x40                     ;isolate secmark
-    jp z,_floppy_await_secmark0     ;loop until secmark == 1
+    jp z,_floppy_await_secmark1     ;loop until secmark == 1
     ret
 
 _floppy_step_pulse   = #0x10
@@ -561,6 +568,8 @@ _floppy_stepdir_in   = #0x20
 _floppy_stepdir_mask = #0x20
 ;uint8_t floppy_step (uint8_t count, uint8_t direction)
 _floppy_step:
+    or a,a                          ;if count == 0:
+    ret z                           ;    return 0
     push hl
     push de
     ld d,a                          ;d = count
@@ -675,7 +684,7 @@ _floppy_position:
 
     ;await sector
     inc hl                      ;hl = &_blk_context.sector
-    ld a,(hl)                   ;e = sector
+    ld a,(hl)                   ;a = sector
     call _floppy_await_sector   ;wait until we are at sector 
 
     pop de
@@ -726,18 +735,46 @@ _blk_increment_overflow:
 
 ;uint8_t floppy_sync2_calc(void)
 _floppy_sync2_calc:
-    push de
+    ;this procedure deviates from the documentation in the technical manual
+    ;instead it follows a similar procedure to what is used by NorthStarDOS/CPM
+    ;a = track | (side << 6)
+    ;b = rrot (a, 2) & 0xf0
+    ;c = b | sector
+    push bc
     push hl
-    ld hl,#_blk_context+5           ;hl = &sector
-    ld a,(hl)                       ;a = sector
-    add a,#16                       ;a = a + 16
-    dec hl                          ;hl = &track
-    ld l,(hl)                       ;l = track
-    call _a_mult_l                  ;hl = a * track
-    ld a,e                          ;a = (uin8_t)hl
+    ld hl,#_blk_context+3   ;hl = &_blk_context.platter
+    ld a,(hl)               ;a = platter
+    inc hl                  ;b = cylinder
+    ld b,(hl)
+    inc hl                  ;c = sector
+    ld c,(hl)
+    rlca                    ;a = platter << 6
+    rlca
+    rlca
+    rlca
+    rlca
+    rlca
+    or a,b                  ;a |= track
+    rrca                    ;a >>= 2
+    rrca
+    and a,#0xf0             ;a &= 0xf0
+    or a,c                  ;a |= sector
     pop hl
-    pop de
+    pop bc
     ret
+
+;    push de
+;    push hl
+;    ld hl,#_blk_context+5           ;hl = &sector
+;    ld a,(hl)                       ;a = sector
+;    add a,#16                       ;a = a + 16
+;    dec hl                          ;hl = &track
+;    ld l,(hl)                       ;l = track
+;    call _a_mult_l                  ;hl = a * track
+;    ld a,e                          ;a = (uin8_t)hl
+;    pop hl
+;    pop de
+;    ret
 
 ;uint8_t floppy_read(uint8_t sec_cnt, uint8_t *buf);
 _floppy_read:
@@ -795,7 +832,7 @@ _floppy_read_valid_crc:
     xor a,a                         ;acc = 0
     dec c                           ;step 8 after read next sector or exit
     jp z,_floppy_read_exit          ;if sec_cnt == 0: return acc
-    call _floppy_await_secmark0     ;wait for next sector mark
+    //call _floppy_await_secmark0     ;wait for next sector mark
     call _blk_increment             ;increment context to next sector
     jp _floppy_read_sector_loop     ;read next sector
 _floppy_read_exit:
