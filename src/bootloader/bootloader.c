@@ -30,9 +30,9 @@ main (void)
     blk_reset ();
     putbyte (blk_set_drive    (0));
     putbyte (blk_set_platter  (0));
-    putbyte (blk_set_cylinder (0));
-    putbyte (blk_set_sector   (4));
-    putbyte (blk_read (0, (uint8_t *)0xd000));
+    putbyte (blk_set_cylinder (21));
+    putbyte (blk_set_sector   (8)); /* 0 1 2 3|4 5 6 7|8 9 */
+    putbyte (blk_read (4, (uint8_t *)0xd000));
     vid_write_c (PVID_NEWLINE);
 
     /* prompt for input */
