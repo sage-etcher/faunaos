@@ -12,6 +12,7 @@ char xtoc (uint8_t x);
 void putbyte (uint8_t byte);
 void putword (uint16_t word);
 int readline (char *buf, uint16_t n);
+uint8_t memcmp (uint8_t *x, uint8_t *y, size_t n);
 
 void
 main (void)
@@ -34,6 +35,28 @@ main (void)
     putbyte (blk_set_sector   (8)); /* 0 1 2 3|4 5 6 7|8 9 */
     putbyte (blk_read (4, (uint8_t *)0xd000));
     vid_write_c (PVID_NEWLINE);
+
+    puts_line ("writing to disk:      ");
+    putbyte (blk_set_platter  (0));
+    putbyte (blk_set_cylinder (22));
+    putbyte (blk_set_sector   (8));
+    putbyte (blk_write (4, (uint8_t *)0xd000));
+    vid_write_c (PVID_NEWLINE);
+
+    puts_line ("validating write:     ");
+    putbyte (blk_set_platter  (0));
+    putbyte (blk_set_cylinder (22));
+    putbyte (blk_set_sector   (8));
+    putbyte (blk_read (4, (uint8_t *)0xd800));
+
+    if (memcmp ((uint8_t *)0xd000, (uint8_t *)0xd800, 0x0800) == 0)
+    {
+        puts ("success");
+    }
+    else
+    {
+        puts ("error");
+    }
 
     /* prompt for input */
     puts_line ("\n\rtest prompt>");
@@ -195,6 +218,24 @@ readline (char *buf, uint16_t max)
             break;
         }
     }
+}
+
+uint8_t
+memcmp (uint8_t *x, uint8_t *y, size_t n)
+{
+    uint8_t c;
+
+    while (n-- > 0)
+    {
+        c = *x - *y;
+        x++;
+        y++;
+        if (c != 0)
+        {
+            break;
+        }
+    }
+    return c;
 }
 
 /* end of file */
