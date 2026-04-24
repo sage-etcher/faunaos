@@ -21,6 +21,12 @@
     .globl _blk_read
     .globl _blk_write
 
+    .globl _blk_jmp_table_err_range
+    .globl _blk_jmp_table
+    .globl _blk_read_jmp_table
+    .globl _blk_write_jmp_table
+    .globl _blk_unsupported_read
+    .globl _blk_unsupported_write
     .globl _floppy_await_secmark0
     .globl _floppy_await_secmark1
     .globl _floppy_home
@@ -33,7 +39,15 @@
     .globl _floppy_read_valid_sync2
     .globl _floppy_read_data_loop
     .globl _floppy_read_valid_crc
+    .globl _floppy_rw_next
     .globl _floppy_rw_exit
+    .globl _floppy_write
+    .globl _floppy_write_valid_wp
+    .globl _floppy_write_sector_loop
+    .globl _floppy_write_no_precomp
+    .globl _floppy_write_valid_precomp
+    .globl _floppy_write_preamble
+    .globl _floppy_write_data
     .globl _prom_video_context
     .globl _send_io_ctrl
     .globl _a_mult_10

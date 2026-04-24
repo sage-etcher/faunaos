@@ -228,13 +228,19 @@ memcmp (uint8_t *x, uint8_t *y, size_t n)
     while (n-- > 0)
     {
         c = *x - *y;
-        x++;
-        y++;
         if (c != 0)
         {
+            putword ((uint16_t)x);
+            putbyte (*x);
+            puts_line ("!= ");
+            putword ((uint16_t)y);
+            putbyte (*y);
             break;
         }
+        x++;
+        y++;
     }
+
     return c;
 }
 
