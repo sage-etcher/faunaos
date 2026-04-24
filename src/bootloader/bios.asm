@@ -54,6 +54,7 @@
     .globl _blk_fn_return
     .globl _blk_check_range
     .globl _floppy_ctrl
+    .globl _blk_increment
 
 
 _adv_io_ctrl  = 0xf0
@@ -370,15 +371,15 @@ _sizeof_blk_device  = 6
 _blk_device_cnt = 2
 _blk_devices:
     .db _blk_type_floppy    ;type floppy
-    .db 1                   ;max platters
-    .db 34                  ;max cylinder
-    .db 9                   ;max sector
+    .db 2                   ;max platters
+    .db 35                  ;max cylinder
+    .db 10                  ;max sector
     .dw 0x01                ;args: (hw disk select)
 
     .db _blk_type_floppy    ;type floppy
-    .db 1                   ;max platters
-    .db 34                  ;max cylinder
-    .db 9                   ;max sector
+    .db 2                   ;max platters
+    .db 35                  ;max cylinder
+    .db 10                  ;max sector
     .dw 0x02                ;args: (hw disk select)
 
 _err_ok         = 0x00
@@ -623,8 +624,9 @@ _floppy_home_error:
 ;uint8_t floppy_await_sector(uint8_t sector)
 _floppy_await_sector:
     push de
-    ld e,a                          ;e = watch_sector
-    dec e
+    dec a                           ;e = watch_sector
+    and a,#0x0f
+    ld e,a
 _floppy_await_sector_loop:
     call _floppy_await_secmark0     ;wait until sector mark is met
     in a,(_adv_io_stat2)            ;read sector number
@@ -693,30 +695,26 @@ _floppy_position:
 
 ;void blk_increment(void)
 _blk_increment:
-    push bc
-    push de
     push hl
+    push de
     call _blk_deref_drive_ptr       ;hl = blk_context.drive_ptr or return err
+    push bc
     ex de,hl
     inc hl                          ;hl = &max_sector
     inc hl
     inc hl
     ld de,#_blk_context+5           ;de = &blk_context->sector
     call _blk_increment_stage       ;increment sector
-    or a,a
-    jp z,_blk_increment_exit
     dec de                          ;increment cylinder
     dec hl
     call _blk_increment_stage
-    or a,a
-    jp z,_blk_increment_exit
     dec de                          ;increment platter
     dec hl
     call _blk_increment_stage
 _blk_increment_exit:
-    pop hl
-    pop de
     pop bc
+    pop de
+    pop hl
     ret
 _blk_increment_stage:
     ld a,(de)                       ;a = sector
@@ -725,13 +723,12 @@ _blk_increment_stage:
     cp a,b                          ;if sector >= max_sector
     jp nc,_blk_increment_overflow   ;    goto blk_increment_overflow
     ld (de),a                       ;blk_context->sector = next sector
-    ld a,#0                         ;return 0
-    ret
+    pop hl                          ;remove call return
+    jp _blk_increment_exit          ;exit parent function
 _blk_increment_overflow:
     sub a,b                         ;next sector -= max_sector
     ld (de),a                       ;blk_context->sector = next sector
-    ld a,#1                         ;return 1
-    ret
+    ret                             ;return from call
 
 ;uint8_t floppy_sync2_calc(void)
 _floppy_sync2_calc:
@@ -780,6 +777,7 @@ _floppy_sync2_calc:
 _floppy_read:
     push bc
     push de
+    ex de,hl
     ld c,a                          ;c = sec_cnt
     call _floppy_position           ;align floppy drive to requested address
 _floppy_read_sector_loop:
@@ -832,8 +830,11 @@ _floppy_read_valid_crc:
     xor a,a                         ;acc = 0
     dec c                           ;step 8 after read next sector or exit
     jp z,_floppy_read_exit          ;if sec_cnt == 0: return acc
-    //call _floppy_await_secmark0     ;wait for next sector mark
+    ;call _floppy_await_secmark0     ;wait for next sector mark
     call _blk_increment             ;increment context to next sector
+    ld a,(#_blk_context+5)          ;if sector == 0, we wrapped to new track
+    or a,a
+    call z,_floppy_position         ;so we need to reposition the disk
     jp _floppy_read_sector_loop     ;read next sector
 _floppy_read_exit:
     ld b,a                          ;protect retcode
