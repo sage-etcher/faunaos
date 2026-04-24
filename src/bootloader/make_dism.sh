@@ -27,4 +27,5 @@ chmod +x $tmp_c_sh
 
 ~/local/disi80/scripts/dism_realign $tmp_c >$tmp_d
 
+printf "; %s: ft=i8080" "vim">> $tmp_d
 cp -f $tmp_d $output
