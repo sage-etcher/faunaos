@@ -15,13 +15,15 @@
 #define VID_POS_SET_XY(x,y) (((y) << 8) | (x))
 
 enum {
-    BLKERR_OK           = 0x00,
-    BLKERR_NULL_DEREF   = 0x01,
-    BLKERR_RANGE        = 0x02,
-    BLKERR_MAXRETRY     = 0x03,
-    BLKERR_BAD_SYNC1    = 0x04,
-    BLKERR_BAD_SYNC2    = 0x05,
-    BLKERR_BAD_CRC      = 0x06,
+    BLKERR_OK                = 0x00,
+    BLKERR_NULL_DEREF        = 0x01,
+    BLKERR_RANGE             = 0x02,
+    BLKERR_MAXRETRY          = 0x03,
+    BLKERR_BAD_SYNC1         = 0x04,
+    BLKERR_BAD_SYNC2         = 0x05,
+    BLKERR_BAD_CRC           = 0x06,
+    BLKERR_UNSUPPORTED_READ  = 0x07,
+    BLKERR_UNSUPPORTED_WRITE = 0x08,
 };
 
 void     vid_set_cursor_shape (uint8_t shape);
