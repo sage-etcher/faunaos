@@ -33,7 +33,7 @@
     .globl _floppy_read_valid_sync2
     .globl _floppy_read_data_loop
     .globl _floppy_read_valid_crc
-    .globl _floppy_read_exit
+    .globl _floppy_rw_exit
     .globl _prom_video_context
     .globl _send_io_ctrl
     .globl _a_mult_10
@@ -61,10 +61,11 @@ _adv_io_ctrl  = 0xf0
 _adv_io_stat1 = 0xe0
 _adv_io_stat2 = 0xd0
 
-_adv_drv_data     = 0x80
-_adv_drv_sync1    = 0x81
-_adv_drv_ctrl     = 0x81
-_adv_drv_set_read = 0x82
+_adv_drv_data      = 0x80
+_adv_drv_sync1     = 0x81
+_adv_drv_ctrl      = 0x81
+_adv_drv_set_read  = 0x82
+_adv_drv_set_write = 0x83
 
     .area _DATA
     .area _INITIALIZED
@@ -392,6 +393,8 @@ _err_bad_sync2         = 0x05
 _err_bad_crc           = 0x06
 _err_unsupported_read  = 0x07
 _err_unsupported_write = 0x08
+_err_write_protect     = 0x09
+
 ;void memset (void *buf, uint8_t byte, size_t n);
 _memset:
     push bc
@@ -787,15 +790,15 @@ _floppy_await_disk_data:            ;step 5 wait for disk data
     cp a,#0xfb                      ;if read_sync1 == 0xfb
     jp z,_floppy_read_valid_sync1   ;    goto floppy_valid_sync1
     ld a,#_err_bad_sync1            ;return err_bad_sync1
-    jp _floppy_read_exit
+    jp _floppy_rw_exit
 _floppy_read_valid_sync1:           ;step 7.1 input sync2
-    call _floppy_sync2_calc         ;b = floppy_sync2_calc(buf)
+    call _floppy_sync2_calc         ;b = floppy_sync2_calc()
     ld b,a
     in a,(#_adv_drv_data)           ;a = read_sync2
     cp a,b                          ;if read_sync2 == calc_sync2
     jp z,_floppy_read_valid_sync2   ;    goto floppy_valid_sync2
     ld a,#_err_bad_sync2            ;return err_bad_crc
-    jp _floppy_read_exit
+    jp _floppy_rw_exit
 _floppy_read_valid_sync2:           ;step 7.2 input 512 bytes of data
     ld b,#0                         ;b = crc = 0
     ld de,#512                      ;counter = 512
@@ -814,30 +817,85 @@ _floppy_read_data_loop:             ;do {
     cp a,b                          ;if read_crc == calc_crc
     jp z,_floppy_read_valid_crc     ;    goto _floppy_valid_crc
     ld a,#_err_bad_crc              ;return err_bad_crc
-    jp _floppy_read_exit
+    jp _floppy_rw_exit
 _floppy_read_valid_crc:
+    call _floppy_rw_next            ;next block or exit
+    jp _floppy_read_sector_loop     ;read next sector
+
+_floppy_rw_next:
     xor a,a                         ;acc = 0
     dec c                           ;step 8 after read next sector or exit
-    jp z,_floppy_read_exit          ;if sec_cnt == 0: return acc
+    jp z,_floppy_rw_exit            ;if sec_cnt == 0: return acc
     ;call _floppy_await_secmark0     ;wait for next sector mark
     call _blk_increment             ;increment context to next sector
     ld a,(#_blk_context+5)          ;if sector == 0, we wrapped to new track
     or a,a
     call z,_floppy_position         ;so we need to reposition the disk
-    jp _floppy_read_sector_loop     ;read next sector
-_floppy_read_exit:
+    ret
+_floppy_rw_exit:
     ld b,a                          ;protect retcode
     ld a,#0x10|0x08                 ;unset motor enable
     call _send_io_ctrl
     ld a,b                          ;restore retcode
+    pop de                          ;remove caller
     pop de
     pop bc
     ret
 
 ;uint8_t floppy_write (uint8_t sec_cnt, uint8_t *buf)
 _floppy_write:
-    call _blk_unsupported_write
-    ret
+    push bc
+    push de
+    ex de,hl
+    ld c,a                          ;c = sec_cnt
+    call _floppy_position           ;align floppy drive to requested address
+    in a,(#_adv_io_stat1)           ;step 1 hardware write protect
+    and a,#0x10
+    jp z,_floppy_write_valid_wp
+    ld a,#_err_write_protect        ;return err_write_protect
+    jp _floppy_rw_exit
+_floppy_write_valid_wp:
+_floppy_write_sector_loop:          ;step 2 precompensation
+    ld de,#_floppy_ctrl             ;de = &floppy_ctrl
+    ld a,(#_blk_context+4)          ;a = track
+    cp a,#15                        ;a = floppy_ctrl; if (track >= 15) {
+    ld a,(de)
+    jp c,_floppy_write_no_precomp
+    or a,#0x10                      ;    a |= precompensation
+    jp _floppy_write_valid_precomp
+_floppy_write_no_precomp:           ;} else {
+    and a,#~0x10                    ;    a &= ~precompensation
+_floppy_write_valid_precomp:        ;}
+    ld (de),a                       ;floppy_ctrl = a
+    out (#_adv_drv_ctrl),a          ;set floppy_ctrl
+    call _floppy_await_secmark1     ;step 3 set disk write
+    out (#_adv_drv_set_write),a
+    xor a,a                         ;step 4 preamble 33 bytes
+    ld b,#33
+_floppy_write_preamble:
+    out (#_adv_drv_data),a          ;write preabmle byte
+    dec b
+    jp nz,_floppy_write_preamble
+    ld a,#0xfb                      ;step 5.1 sync 1
+    out (#_adv_drv_data),a
+    call _floppy_sync2_calc         ;step 5.2 sync 2
+    out (#_adv_drv_data),a
+    ld b,#0                         ;step 6 write data
+    ld de,#512                      ;count = 512
+_floppy_write_data:
+    ld a,(hl)                       ;a = *buf 
+    out (#_adv_drv_data),a          ;write byte
+    xor a,b                         ;b = crc calc
+    rlca
+    ld b,a
+    inc hl                          ;buf++
+    dec de                          ;count--
+    jp nz,_floppy_write_data        ;loop
+    ld a,b                          ;step 7 write crc8
+    out (#_adv_drv_data),a
+                                    ;step 8 done
+    call _floppy_rw_next            ;next block or exit
+    jp _floppy_write_sector_loop    ;write next sector
 
 ;uint8_t floppy_write (uint8_t sec_cnt, uint8_t *buf)
 _blk_unsupported_read:

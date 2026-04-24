@@ -24,6 +24,7 @@ enum {
     BLKERR_BAD_CRC           = 0x06,
     BLKERR_UNSUPPORTED_READ  = 0x07,
     BLKERR_UNSUPPORTED_WRITE = 0x08,
+    BLKERR_WRITE_PROTECT     = 0x09,
 };
 
 void     vid_set_cursor_shape (uint8_t shape);
