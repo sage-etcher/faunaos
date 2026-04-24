@@ -366,6 +366,7 @@ _blk_type_floppy    = 0
 _blk_type_serial    = 1
 _blk_type_ram       = 2
 _blk_type_harddrive = 3
+_blk_type_max       = 4
 
 _sizeof_blk_device  = 6
 _blk_device_cnt = 2
@@ -382,14 +383,15 @@ _blk_devices:
     .db 10                  ;max sector
     .dw 0x02                ;args: (hw disk select)
 
-_err_ok         = 0x00
-_err_null_deref = 0x01
-_err_range      = 0x02
-_err_maxretry   = 0x03
-_err_bad_sync1  = 0x04
-_err_bad_sync2  = 0x05
-_err_bad_crc    = 0x06
-
+_err_ok                = 0x00
+_err_null_deref        = 0x01
+_err_range             = 0x02
+_err_maxretry          = 0x03
+_err_bad_sync1         = 0x04
+_err_bad_sync2         = 0x05
+_err_bad_crc           = 0x06
+_err_unsupported_read  = 0x07
+_err_unsupported_write = 0x08
 ;void memset (void *buf, uint8_t byte, size_t n);
 _memset:
     push bc
@@ -760,19 +762,6 @@ _floppy_sync2_calc:
     pop bc
     ret
 
-;    push de
-;    push hl
-;    ld hl,#_blk_context+5           ;hl = &sector
-;    ld a,(hl)                       ;a = sector
-;    add a,#16                       ;a = a + 16
-;    dec hl                          ;hl = &track
-;    ld l,(hl)                       ;l = track
-;    call _a_mult_l                  ;hl = a * track
-;    ld a,e                          ;a = (uin8_t)hl
-;    pop hl
-;    pop de
-;    ret
-
 ;uint8_t floppy_read(uint8_t sec_cnt, uint8_t *buf);
 _floppy_read:
     push bc
@@ -845,13 +834,99 @@ _floppy_read_exit:
     pop bc
     ret
 
-_blk_read:
-    call _floppy_read
+;uint8_t floppy_write (uint8_t sec_cnt, uint8_t *buf)
+_floppy_write:
+    call _blk_unsupported_write
     ret
 
-_blk_write:
-    call _floppy_position
+;uint8_t floppy_write (uint8_t sec_cnt, uint8_t *buf)
+_blk_unsupported_read:
+    ld a,#_err_unsupported_read
     ret
+
+;uint8_t floppy_write (uint8_t sec_cnt, uint8_t *buf)
+_blk_unsupported_write:
+    ld a,#_err_unsupported_write
+    ret
+
+;uint8_t (*blk_read_jmp_table[blk_type_max])(uint8_t sec_cnt, uint8_t *buf)
+_blk_read_jmp_table:
+    .dw _floppy_read
+    .dw _blk_unsupported_read
+    .dw _blk_unsupported_read
+    .dw _blk_unsupported_read
+    .db 0 ;align disasm
+
+;uint8_t (*blk_write_jmp_table[blk_type_max])(uint8_t sec_cnt, uint8_t *buf)
+_blk_write_jmp_table:
+    .dw _floppy_write
+    .dw _blk_unsupported_write
+    .dw _blk_unsupported_write
+    .dw _blk_unsupported_write
+    .db 0 ;align disasm
+
+;uint8_t blk_jmp_table (void *jmp_table, NULL, uint8_t sec_cnt, uint8_t *buf);
+_blk_jmp_table:
+    push hl                         ;push like a blk_fn
+    push de
+    call _blk_deref_drive_ptr       ;de = blk_context.drive_ptr or return err
+    ld a,(de)                       ;a = drive_type
+    cp a,#_blk_type_max             ;if drive_type >= blk_type_max
+    jp nc,#_blk_jmp_table_err_range ;    goto blk_jmp_table_err_range
+    push hl                         ;push jmp_table
+    ld l,a                          ;hl = drive_type
+    ld h,#0
+    pop de                          ;de = pop jmp_table
+    add hl,hl                       ;hl = jmp_table[drive_type]
+    add hl,de
+    ld e,(hl)
+    inc hl
+    ld d,(hl)
+    ex de,hl
+    pop de                          ;pop like a blk_fn
+    pop de
+    push hl                         ;protect callback_fn
+    ld hl,#4                        ;hl = SP+4
+    add hl,sp
+    ld a,(hl)                       ;a = sec_cnt
+    inc hl                          ;de = buf
+    ld e,(hl)
+    inc hl
+    ld d,(hl)
+    pop hl                          ;restore callback_fn
+    jp (hl)                         ;return callback_fn (sec_cnt, buf)
+_blk_jmp_table_err_range:
+    ld a,#_err_range                ;return err_range
+    pop de
+    pop hl
+    ret
+
+;uint8_t blk_read (uint8_t sec_cnt, uint8_t *buf);
+_blk_read:
+    push hl
+    push de     ;return blk_jmp_table(blk_read_jmp_table, _, sec_cnt, buf)
+    push af
+    inc sp
+    ld hl,#_blk_read_jmp_table
+    call _blk_jmp_table
+    inc sp
+    pop de
+    pop hl
+    ret
+
+;uint8_t blk_write (uint8_t sec_cnt, uint8_t *buf);
+_blk_write:
+    push hl
+    push de     ;return blk_jmp_table(blk_write_jmp_table, _, sec_cnt, buf)
+    push af
+    inc sp
+    ld hl,#_blk_write_jmp_table
+    call _blk_jmp_table
+    inc sp
+    pop de
+    pop hl
+    ret
+
 
     .area _CODE
     .area _INITIALIZER
