@@ -1,6 +1,7 @@
 
     .module faunaos_bios
 
+    ; {{{
     .globl _vid_set_cursor_shape
     .globl _vid_set_cursor_position
     .globl _vid_get_cursor_position
@@ -69,6 +70,7 @@
     .globl _blk_check_range
     .globl _floppy_ctrl
     .globl _blk_increment
+    ; }}}
 
 
 _adv_io_ctrl  = 0xf0

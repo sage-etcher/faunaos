@@ -226,25 +226,25 @@ readline (char *buf, uint16_t max)
 uint8_t
 memcmp (uint8_t *x, uint8_t *y, size_t n)
 {
-    uint8_t c;
+    register uint8_t c = 0;
 
     while (n-- > 0)
     {
         c = *x - *y;
         if (c != 0)
         {
-            putword ((uint16_t)x);
-            putbyte (*x);
-            puts_line ("!= ");
-            putword ((uint16_t)y);
-            putbyte (*y);
-            break;
+            //putword ((uint16_t)x);
+            //putbyte (*x);
+            //puts_line ("!= ");
+            //putword ((uint16_t)y);
+            //putbyte (*y);
+            return c;
         }
         x++;
         y++;
     }
 
-    return c;
+    return 0;
 }
 
 /* end of file */
