@@ -27,15 +27,17 @@ main (void)
     // TODO: why does this puts() not send a carriage return?
 
     /* read from disk */
+    /* 0xd000..0xd800 = drive 0 side 0 21:8..=9, 22:0..=1 */
     puts_line ("reading from disk: ");
     blk_reset ();
     putbyte (blk_set_drive    (0));
     putbyte (blk_set_platter  (0));
     putbyte (blk_set_cylinder (21));
-    putbyte (blk_set_sector   (8)); /* 0 1 2 3|4 5 6 7|8 9 */
+    putbyte (blk_set_sector   (8));
     putbyte (blk_read (4, (uint8_t *)0xd000));
     vid_write_c (PVID_NEWLINE);
 
+    /* drive 0 side 0 22:8..=9, 23:0..=1 = 0xd000..0xd800 */
     puts_line ("writing to disk:      ");
     putbyte (blk_set_platter  (0));
     putbyte (blk_set_cylinder (22));
@@ -43,6 +45,7 @@ main (void)
     putbyte (blk_write (4, (uint8_t *)0xd000));
     vid_write_c (PVID_NEWLINE);
 
+    /* 0xd800..0xe000 = drive 0 side 0 22:8..=9, 23:0..=1 */
     puts_line ("validating write:     ");
     putbyte (blk_set_platter  (0));
     putbyte (blk_set_cylinder (22));

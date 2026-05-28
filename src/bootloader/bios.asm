@@ -875,17 +875,17 @@ _floppy_write_sector_loop:          ;step 2 precompensation
     cp a,#15                        ;a = floppy_ctrl; if (track >= 15) {
     ld a,(de)
     jp c,_floppy_write_no_precomp
-    or a,#0x10                      ;    a |= precompensation
+    or a,#0x20                      ;    a |= precompensation
     jp _floppy_write_valid_precomp
 _floppy_write_no_precomp:           ;} else {
-    and a,#~0x10                    ;    a &= ~precompensation
+    and a,#~0x20                    ;    a &= ~precompensation
 _floppy_write_valid_precomp:        ;}
     ld (de),a                       ;floppy_ctrl = a
     out (#_adv_drv_ctrl),a          ;set floppy_ctrl
     call _floppy_await_secmark1     ;step 3 set disk write
     out (#_adv_drv_set_write),a
     xor a,a                         ;step 4 preamble 33 bytes
-    ld b,#33
+    ld b,#34
 _floppy_write_preamble:
     out (#_adv_drv_data),a          ;write preabmle byte
     dec b
@@ -904,7 +904,9 @@ _floppy_write_data:
     ld b,a
     inc hl                          ;buf++
     dec de                          ;count--
-    jp nz,_floppy_write_data        ;loop
+    ld a,d                          ;while count != 0
+    or e
+    jp nz,_floppy_write_data
     ld a,b                          ;step 7 write crc8
     out (#_adv_drv_data),a
                                     ;step 8 done
