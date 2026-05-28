@@ -7,13 +7,13 @@ CRT0_INC=	../boot-crt0
 CRT0_REL=	../boot-crt0/crt0.rel
 
 PROG=	bootloader
-RELS=	${CRT0_REL} \
-     	bootloader.rel \
-		bios.rel \
+RELS=	crt0.rel \
+     	bios.rel \
      	${EXTERNAL}/advantage_prom.rel \
-     	${EXTERNAL}/z80std.rel
+     	${EXTERNAL}/z80std.rel \
+     	bootloader.rel \
 
-CFLAGS +=	-I${EXTERNAL} -I${CRT0_INC}
+CFLAGS +=	-I${EXTERNAL}
 
 CLEAN_DEPS +=	custom_clean
 
