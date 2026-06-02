@@ -22,8 +22,10 @@
     .globl _blk_read
     .globl _blk_write
 
-    .globl _blk_jmp_table_err_range
     .globl _blk_jmp_table
+    .globl _blk_jmp_table_ret
+    .globl _blk_jmp_table_valid_drive_ptr
+    .globl _blk_jmp_table_valid_range
     .globl _blk_read_jmp_table
     .globl _blk_write_jmp_table
     .globl _blk_unsupported_read
@@ -64,6 +66,7 @@
     .globl _kb_enable_mi
     .globl _blk_context
     .globl _blk_devices
+    .globl _blk_deref_drive_ptr
     .globl _blk_deref_drive_ptr
     .globl _blk_fn_return_parent
     .globl _blk_fn_return
@@ -434,7 +437,10 @@ _memset_loop:
 _memset_exit:
     pop de
     pop bc
-    ret
+    pop hl              ;HL=ret
+    inc sp              ;pop param
+    inc sp
+    jp (hl)             ;return
 
 ;void blk_reset (void)
 _blk_reset:
@@ -445,7 +451,6 @@ _blk_reset:
     ld de,#_sizeof_blk_context
     push de
     call _memset
-    pop de
     pop de                      ;callee restores
     pop hl
     ret
@@ -472,15 +477,21 @@ _blk_set_drive_valid:           ;}
     xor a,a                     ;return 0
     jp _blk_fn_return
 
-;de = blk_context.drive_ptr on success
-;a = err_null_deref and return from parent on failure
-_blk_deref_drive_ptr:
+;NZF and de = blk_context.drive_ptr on success or
+; ZF and de = 0000h on error
+_deref_drive_ptr:
     push hl
     ld hl,(#_blk_context+1)     ;hl = blk_context.drive_ptr
     ld a,h                      ;if (blk_context.drive_ptr == NULL)
     or a,l
     ex de,hl
     pop hl
+    ret
+
+;de = blk_context.drive_ptr on success
+;a = err_null_deref and return from parent on failure
+_blk_deref_drive_ptr:
+    call _deref_drive_ptr       ;de = drive_ptr, ZF on error
     ret nz                      ;    return hl
     ld a,#_err_null_deref       ;return err_null_deref
 _blk_fn_return_parent:
@@ -939,16 +950,27 @@ _blk_write_jmp_table:
     .dw _blk_unsupported_write
     .dw _blk_unsupported_write
     .dw _blk_unsupported_write
-    .db 0 ;align disasm
+    .db 0,0 ;align disasm
 
 ;uint8_t blk_jmp_table (void *jmp_table, NULL, uint8_t sec_cnt, uint8_t *buf);
 _blk_jmp_table:
-    push hl                         ;push like a blk_fn
-    push de
-    call _blk_deref_drive_ptr       ;de = blk_context.drive_ptr or return err
+    call _deref_drive_ptr           ;de = blk_context.drive_ptr or ZF
+                                    ;if drive_ptr == NULL
+    jp nz,_blk_jmp_table_valid_drive_ptr
+    ld a,#_err_null_deref           ;    return err_null_deref
+_blk_jmp_table_ret:
+    pop hl                          ;hl=retptr
+    inc sp                          ;pop params
+    inc sp
+    inc sp
+    jp (hl)
+_blk_jmp_table_valid_drive_ptr:
     ld a,(de)                       ;a = drive_type
     cp a,#_blk_type_max             ;if drive_type >= blk_type_max
-    jp nc,#_blk_jmp_table_err_range ;    goto blk_jmp_table_err_range
+    jp c,_blk_jmp_table_valid_range
+    ld a,#_err_range                ;   return err_range
+    jp _blk_jmp_table_ret
+_blk_jmp_table_valid_range:
     push hl                         ;push jmp_table
     ld l,a                          ;hl = drive_type
     ld h,#0
@@ -959,23 +981,26 @@ _blk_jmp_table:
     inc hl
     ld d,(hl)
     ex de,hl
-    pop de                          ;pop like a blk_fn
-    pop de
+    pop de                          ;de = retptr
     push hl                         ;protect callback_fn
-    ld hl,#4                        ;hl = SP+4
+                                    ;SP+0..1 = callback_fn
+                                    ;SP+2    = sec_cnt
+                                    ;SP+3..4 = buf
+    ld hl,#3                        ;hl = SP+3
     add hl,sp
-    ld a,(hl)                       ;a = sec_cnt
-    inc hl                          ;de = buf
-    ld e,(hl)
-    inc hl
-    ld d,(hl)
-    pop hl                          ;restore callback_fn
+    ld sp,hl                        ;sp += 3
+    ex de,hl                        ;hl = retptr, de = stack_ptr
+    ex (sp),hl                      ;hl = buf, SP+3..4 = retptr
+    ex de,hl                        ;de = buf
+    dec hl                          ;a = sec_cnt
+    ld a,(hl)
+    dec hl                          ;hl = callback_fn
+    ld b,(hl)
+    dec hl
+    ld c,(hl)
+    ld h,b
+    ld l,c
     jp (hl)                         ;return callback_fn (sec_cnt, buf)
-_blk_jmp_table_err_range:
-    ld a,#_err_range                ;return err_range
-    pop de
-    pop hl
-    ret
 
 ;uint8_t blk_read (uint8_t sec_cnt, uint8_t *buf);
 _blk_read:
@@ -985,8 +1010,6 @@ _blk_read:
     inc sp
     ld hl,#_blk_read_jmp_table
     call _blk_jmp_table
-    inc sp
-    pop de
     pop hl
     ret
 
@@ -998,8 +1021,6 @@ _blk_write:
     inc sp
     ld hl,#_blk_write_jmp_table
     call _blk_jmp_table
-    inc sp
-    pop de
     pop hl
     ret
 
