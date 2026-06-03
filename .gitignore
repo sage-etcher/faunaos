@@ -11,8 +11,9 @@
 bins/
 disks/
 logs/
-tools/ddtz/
-disk_a.nsi
 .tmp.**
 **_dis.asm
-tools/ddtz.zip
+/*.nsi
+**/\\
+external_bin/
+tools/ddtz**
