@@ -11,6 +11,10 @@ RELS=	crt0.rel \
      	bios.rel \
      	${EXTERNAL}/advantage_prom.rel \
      	${EXTERNAL}/z80std.rel \
+     	io.rel \
+     	mem.rel \
+     	test.rel \
+     	test_bios.rel \
      	bootloader.rel \
 
 CFLAGS +=	-I${EXTERNAL}
