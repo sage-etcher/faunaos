@@ -18,9 +18,11 @@ diskette.
   cross-compiler, bindings, and `CPMLOAD.COM`.
   This is NorthStar Advantage exculsive.
 
-- `tools/extract_bootloader.sh $1 $2` Unix shell script to create a new
+- `tools/extract_bootloader.sh $1 $2 [$3]` Unix shell script to create a new
   diskette image, `$1`, with bootloader file, `$2`, copied into side 0,
-  track 0, sector 4. This is the Unix-like alternative to `CPMLOAD.COM`.
+  track 0, sector 4. This is the Unix-like alternative to `CPMLOAD.COM`. 
+  Additionally use optional `$3`, default of 4, to specify custom bootloader 
+  size in blks.
 
 - `src/external/*` SDCC C bindings for interfacing with CP/M, On-board PROM,
   and Hardware Registers. All bindings assume `_sdcccall(1)` ABI and calling 
