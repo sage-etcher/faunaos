@@ -20,9 +20,9 @@ __entry0:
     call _blk_set_platter
     ld a,#0
     call _blk_set_cylinder
-    ld a,#8                 ;PROM loads 4,5,6,7 we load 8,9
-    call _blk_set_sector
-    ld a,#2
+    ld a,#8                 ;PROM loads t0 4,5,6,7 we load 8,9
+    call _blk_set_sector    ;           t1 0..10
+    ld a,#12
     ld de,#0xc800           ;0xc800..0xcc00
     call _blk_read
     ld a,#0                 ;argc
