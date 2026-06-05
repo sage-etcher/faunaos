@@ -95,6 +95,11 @@ putu (uint16_t word)
         word = s->quot;
     }
 
+    if (i == BUF_MAX)
+    {
+        iter--;
+    }
+
     puts_raw (iter);
     putchar (' ');
 
