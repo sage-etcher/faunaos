@@ -1,95 +1,68 @@
 #include "test_bios.h"
 
 #include "io.h"
+#include "mem.h"
 #include "test.h"
 
 #include "types.h"
 
-typedef uint8_t (*test_cb_t)(void);
+DECLARE_RUN_ALL_TESTS ();
 
-#define ARRLEN(arr) (sizeof (arr) / sizeof (*(arr)))
+void
+test_bios (void)
+{
+    run_all_tests ();
+}
+
 
 static uint8_t
 test_asserts (void)
 {
     puts_raw ("test_asserts... ");
 
-    assert (TRUE, NULL);
-    assert (TRUE, "msg");
+    t_assert (T_TRUE, NULL);
+    t_assert (T_TRUE, "msg");
 
     int a = 6;
-    assert_eq (a, 7);
+    t_assert_eq (a, 7);
 
-    return_pass (NULL);
+    T_RETURN (T_PASS, NULL);
 }
 
 static uint8_t 
 test_pass (void)
 {
     puts_raw ("test_pass... ");
-    return_pass ("always pass");
+    T_RETURN (T_PASS, "always pass");
 }
 
 static uint8_t 
 test_fail (void)
 {
     puts_raw ("test_fail... ");
-    return_fail ("always fail");
+    T_RETURN (T_FAIL, "always fail");
 }
 
 static uint8_t 
 test_skip (void)
 {
     puts_raw ("test_skip... ");
-    return_skip ("always skip");
+    T_RETURN (T_SKIP, "always skip");
 }
 
-
-void
-test_bios (void)
+static uint8_t 
+test_silent (void)
 {
-    uint16_t pass_count = 0;
-    uint16_t fail_count = 0;
-    uint16_t skip_count = 0;
-
-    test_cb_t test_list[] = {
-        test_asserts,
-        test_pass,
-        test_fail,
-        test_skip,
-    };
-    size_t test_count = ARRLEN (test_list);
-    size_t i = 0;
-
-    test_cb_t test_cb;
-    uint8_t status;
-
-    for (i = 0; i < test_count; i++)
-    {
-        test_cb = test_list[i];
-        status = test_cb ();
-        switch (status) {
-        case PASS: pass_count++; break;
-        case FAIL: fail_count++; break;
-        case SKIP: skip_count++; break;
-        }
-    }
-
-    //puts ("test results:");
-    //puts_raw ("pass: 0x");
-    //putword (pass_count);
-    //putchar ('\n');
-    //putchar ('\r');
-
-    //puts_raw ("fail: 0x");
-    //putword (fail_count);
-    //putchar ('\n');
-    //putchar ('\r');
-
-    //puts_raw ("skip: 0x");
-    //putword (skip_count);
-    //putchar ('\n');
-    //putchar ('\r');
+    puts_raw ("test_silent...");
+    T_RETURN (T_PASS, NULL);
 }
+
+DEFINE_RUN_ALL_TESTS (
+    test_asserts,
+    test_pass,
+    test_fail,
+    test_skip,
+    test_silent,
+)
 
 /* end of file */

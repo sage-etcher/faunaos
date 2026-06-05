@@ -2,6 +2,7 @@
 
 #include "advantage_prom.h"
 #include "bios.h"
+#include "math.h"
 #include "types.h"
 #include "z80std.h"
 
@@ -41,6 +42,13 @@ puts (char *str)
     return 0;
 }
 
+int8_t
+crlf (void)
+{
+    vid_write_c (PVID_NEWLINE);
+    return 0;
+}
+
 static char
 xtoc (uint8_t x)
 {
@@ -69,6 +77,27 @@ putword (uint16_t word)
     vid_write_c (xtoc (word >>  4));
     vid_write_c (xtoc (word >>  0));
     vid_write_c (' ');
+    return 0;
+}
+
+int8_t
+putu (uint16_t word)
+{
+    enum { BUF_MAX = 5 }; // max value "65535"
+    char buf[BUF_MAX+1] = "    0";
+    char *iter = buf + BUF_MAX;
+    int8_t i = BUF_MAX;
+
+    for (; i >= 0 && word > 0; i--)
+    {
+        struct uint16div_t *s = uint16div (word, 10);
+        *--iter = (uint8_t)s->rem + '0';
+        word = s->quot;
+    }
+
+    puts_raw (iter);
+    putchar (' ');
+
     return 0;
 }
 

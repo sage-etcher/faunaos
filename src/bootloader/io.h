@@ -10,9 +10,11 @@ int8_t putchar (char ch);
 int8_t puts (const char *str);
 
 /* custom */
+int8_t crlf (void);
 int8_t puts_raw (const char *str);
 int8_t putbyte (uint8_t byte);
 int8_t putword (uint16_t word);
+int8_t putu (uint16_t word);
 size_t readline (char *buf, size_t n);
 
 #endif

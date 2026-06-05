@@ -11,6 +11,8 @@ RELS=	crt0.rel \
      	bios.rel \
      	${EXTERNAL}/advantage_prom.rel \
      	${EXTERNAL}/z80std.rel \
+     	embed.rel \
+     	math.rel \
      	io.rel \
      	mem.rel \
      	test.rel \
