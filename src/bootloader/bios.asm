@@ -505,6 +505,7 @@ _blk_fn_return:
 ;ACC = err_range, and return from parent on failure
 _blk_check_range:               ;e = input
     ld a,(hl)                   ;a = max
+    dec a
     cp a,e                      ;if (max >= request)
     ret nc                      ;    return CY=1
     ld a,#_err_range            ;return err_range
