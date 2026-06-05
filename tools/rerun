@@ -1,5 +1,8 @@
 #!/usr/bin/env sh
 nsaectl pause
-nsaectl load mmu 0xc000 $1
-nsaectl set cpu pc 0xc010
+./tools/extract_bootloader.sh testboot.nsi ./bin/bootloader_boot.bin 12
+nsaectl set floppy 0:eject true
+nsaectl load 0 testboot.nsi
+nsaectl reset
+nsaectl press 0x0d
 nsaectl run
