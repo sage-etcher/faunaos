@@ -38,8 +38,8 @@
 #define t_assert_str_eq(x, y)  t_assert((0 == strcmp (x, y)), #x " == " #y)
 #define t_assert_str_neq(x, y) t_assert((0 != strcmp (x, y)), #x " != " #y)
 
-#define t_assert_mem_eq(x, y, n)  t_assert((0 == memcmp (x, y)), #x "[] == " #y "[]")
-#define t_assert_mem_neq(x, y, n) t_assert((0 != memcmp (x, y)), #x "[] != " #y "[]")
+#define t_assert_mem_eq(x, y, n)  t_assert((0 == memcmp (x, y, n)), #x "[] == " #y "[]")
+#define t_assert_mem_neq(x, y, n) t_assert((0 != memcmp (x, y, n)), #x "[] != " #y "[]")
 
 #define DECLARE_RUN_ALL_TESTS() void run_all_tests (void)
 
