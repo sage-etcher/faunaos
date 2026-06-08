@@ -47,5 +47,7 @@ uint8_t blk_get_write_protect (void);
 uint8_t blk_read  (uint8_t sec_cnt, uint8_t *buf);
 uint8_t blk_write (uint8_t sec_cnt, uint8_t *buf);
 
+void memset(uint8_t *dst, uint8_t b, size_t n);
+
 #endif
 /* end of file */

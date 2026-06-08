@@ -86,6 +86,12 @@
         /* }}} */                                   \
     }
 
+typedef void (*test_prepare_cb_t)(void);
+typedef void (*test_finalize_cb_t)(void);
+
+extern test_prepare_cb_t  g_prepare_print_cb;
+extern test_finalize_cb_t g_finalize_print_cb;
+
 typedef uint8_t (*test_t)(void);
 const char *test_state_name(uint8_t state);
 void test_log_result (uint8_t state, const char *msg, uint16_t line);

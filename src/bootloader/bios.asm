@@ -1001,6 +1001,19 @@ _blk_jmp_table_valid_range:
     ld c,(hl)
     ld h,b
     ld l,c
+    or a                            ;if sec_cnt == 0 return err_ok
+    jp nz,_blk_valid_sec_cnt
+    ld a,#_err_ok
+    ret
+_blk_valid_sec_cnt:
+    ld b,a                          ;protect sec_cnt
+    ld a,d                          ;if buf == NULL return err_null_deref
+    or e
+    jp nz,_blk_valid_buf
+    ld a,#_err_null_deref
+    ret
+_blk_valid_buf:
+    ld a,b                          ;restore sec_cnt
     jp (hl)                         ;return callback_fn (sec_cnt, buf)
 
 ;uint8_t blk_read (uint8_t sec_cnt, uint8_t *buf);
