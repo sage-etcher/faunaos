@@ -244,12 +244,14 @@ test_blk_read(void)
 static uint8_t
 test_blk_write(void)
 {
+    puts_raw("test_blk_write...        ");
     T_RETURN(T_SKIP, "unimplimented");
 }
 
 static uint8_t
 test_blk_write_protect(void)
 {
+    puts_raw("test_blk_write_protect...");
     T_RETURN(T_SKIP, "unimplimented");
 }
 
@@ -262,6 +264,8 @@ DEFINE_RUN_ALL_TESTS(
     test_blk_set_sector,
     test_blk_reset,
     test_blk_read,
+    test_blk_write,
+    test_blk_write_protect,
 )
 
 /* end of file */
